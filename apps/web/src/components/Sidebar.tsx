@@ -1147,17 +1147,17 @@ export default function Sidebar() {
   }, []);
 
   const wordmark = (
-    <div className="flex min-w-0 items-center gap-2">
+    <div className="flex items-center gap-2">
       <SidebarTrigger className="shrink-0 md:hidden" />
       <Tooltip>
         <TooltipTrigger
           render={
-            <div className="ml-1 flex min-w-0 max-w-full items-center gap-1 cursor-pointer">
+            <div className="flex min-w-0 flex-1 items-center gap-1 ml-1 cursor-pointer">
               <T3Wordmark />
               <span className="truncate text-sm font-medium tracking-tight text-muted-foreground">
                 Code
               </span>
-              <span className="shrink-0 rounded-full bg-muted/50 px-1.5 py-0.5 text-[8px] font-medium uppercase tracking-[0.18em] text-muted-foreground/60">
+              <span className="rounded-full bg-muted/50 px-1.5 py-0.5 text-[8px] font-medium uppercase tracking-[0.18em] text-muted-foreground/60">
                 {APP_STAGE_LABEL}
               </span>
             </div>
@@ -1174,7 +1174,7 @@ export default function Sidebar() {
     <>
       {isElectron ? (
         <>
-          <SidebarHeader className="drag-region h-[52px] flex-row items-center gap-2 px-3 py-0 pl-[76px]">
+          <SidebarHeader className="drag-region h-[52px] flex-row items-center gap-2 px-4 py-0 pl-[90px]">
             {wordmark}
             {showDesktopUpdateButton && (
               <Tooltip>
