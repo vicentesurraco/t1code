@@ -31,16 +31,7 @@ npx @maria_rcks/t1code
 ## Development
 
 ```bash
-bun install
-bun run dev:tui
-```
-
-For the required checks:
-
-```bash
-bun run fmt
-bun run lint
-bun run typecheck
+bun dev:tui
 ```
 
 ## Notes
