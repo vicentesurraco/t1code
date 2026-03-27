@@ -796,6 +796,39 @@ describe("WebSocket Server", () => {
     );
   });
 
+  it("does not auto-bootstrap a project or thread when launched from the user home directory", async () => {
+    vi.spyOn(os, "homedir").mockReturnValue("/Users/tester");
+
+    server = await createTestServer({
+      cwd: "/Users/tester",
+      autoBootstrapProjectFromCwd: true,
+    });
+    const addr = server.address();
+    const port = typeof addr === "object" && addr !== null ? addr.port : 0;
+    expect(port).toBeGreaterThan(0);
+
+    const [ws, welcome] = await connectAndAwaitWelcome(port);
+    connections.push(ws);
+    expect(welcome.data).toEqual(
+      expect.objectContaining({
+        cwd: "/Users/tester",
+        projectName: "tester",
+      }),
+    );
+    expect(welcome.data).not.toHaveProperty("bootstrapProjectId");
+    expect(welcome.data).not.toHaveProperty("bootstrapThreadId");
+
+    const snapshotResponse = await sendRequest(ws, ORCHESTRATION_WS_METHODS.getSnapshot);
+    expect(snapshotResponse.error).toBeUndefined();
+    const snapshot = snapshotResponse.result as {
+      projects: Array<{ id: string }>;
+      threads: Array<{ id: string }>;
+    };
+
+    expect(snapshot.projects).toEqual([]);
+    expect(snapshot.threads).toEqual([]);
+  });
+
   it("logs outbound websocket push events in dev mode", async () => {
     const logSpy = vi.spyOn(console, "log").mockImplementation(() => {
       // Keep test output clean while verifying websocket logs.

@@ -7,6 +7,7 @@
  * @module Server
  */
 import http from "node:http";
+import os from "node:os";
 import type { Duplex } from "node:stream";
 
 import Mime from "@effect/platform-node/Mime";
@@ -151,6 +152,10 @@ function websocketRawToString(raw: unknown): string | null {
     return chunks.join("");
   }
   return null;
+}
+
+function shouldSkipAutoBootstrapForCwd(cwd: string): boolean {
+  return cwd === os.homedir();
 }
 
 function toPosixRelativePath(input: string): string {
@@ -624,7 +629,7 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
   let welcomeBootstrapProjectId: ProjectId | undefined;
   let welcomeBootstrapThreadId: ThreadId | undefined;
 
-  if (autoBootstrapProjectFromCwd) {
+  if (autoBootstrapProjectFromCwd && !shouldSkipAutoBootstrapForCwd(cwd)) {
     yield* Effect.gen(function* () {
       const snapshot = yield* projectionReadModelQuery.getSnapshot();
       const existingProject = snapshot.projects.find(
