@@ -6753,7 +6753,6 @@ export function App({
                 content={responsiveLayout.sidebarTitle}
                 style={{
                   fg: PALETTE.text,
-                  marginRight: responsiveLayout.showSidebarAlphaBadge ? 1 : 0,
                 }}
               />
               {responsiveLayout.showSidebarAlphaBadge ? <Badge label="ALPHA" /> : null}
