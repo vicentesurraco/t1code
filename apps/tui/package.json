@@ -13,6 +13,7 @@
     "directory": "apps/tui"
   },
   "bin": {
+    "t1": "./bin/t1code.js",
     "t1code": "./bin/t1code.js"
   },
   "files": [
