@@ -120,7 +120,7 @@ describe("resolveTuiTheme", () => {
 
     expect(theme.mode).toBe("dark");
     expect(theme.id).toBe("system-true");
-    expect(asHex(theme.palette.canvas)).toBe("#2e344000");
+    expect(asHex(theme.palette.canvas)).toBe("#2e3440");
     expect(asHex(theme.palette.text)).toBe("#e5e9f0");
     expect(asHex(theme.palette.accent)).toBe("#88c0d0");
     expect(asHex(theme.palette.composerSend)).toBe("#88c0d0");

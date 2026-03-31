@@ -590,6 +590,7 @@ function createSystemTrueTheme(colors: TerminalColors, mode: TuiThemeMode): TuiT
   if (!backgroundHex) return null;
 
   const resolved = resolveSystemTheme(generateSystem(colors, mode), mode);
+  const solidBackground = RGBA.fromHex(backgroundHex);
   const isDark = mode === "dark";
   const toneAlpha = isDark ? 0.18 : 0.12;
   const selectedText = selectedForeground(resolved, resolved.primary);
@@ -598,9 +599,9 @@ function createSystemTrueTheme(colors: TerminalColors, mode: TuiThemeMode): TuiT
     id: "system-true",
     mode,
     palette: {
-      canvas: resolved.background,
+      canvas: solidBackground,
       sidebar: resolved.backgroundPanel,
-      main: resolved.background,
+      main: solidBackground,
       surface: resolved.backgroundPanel,
       surfaceAlt: resolved.backgroundElement,
       input: resolved.backgroundElement,
@@ -608,7 +609,7 @@ function createSystemTrueTheme(colors: TerminalColors, mode: TuiThemeMode): TuiT
       surfacePlan: tint(resolved.backgroundPanel, resolved.secondary, isDark ? 0.14 : 0.1),
       surfaceWarn: tint(resolved.backgroundPanel, resolved.warning, isDark ? 0.16 : 0.1),
       surfaceInfo: tint(resolved.backgroundPanel, resolved.info, isDark ? 0.14 : 0.1),
-      footer: resolved.background,
+      footer: solidBackground,
       diff: resolved.backgroundPanel,
       popup: resolved.backgroundMenu,
       scrim: isDark ? "#00000099" : "#00000022",
