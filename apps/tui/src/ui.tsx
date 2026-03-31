@@ -535,6 +535,8 @@ function terminalColorSignature(colors: TerminalColors | null | undefined): stri
   ].join("|");
 }
 
+const WEZTERM_THEME_POLL_INTERVAL_MS = 50;
+
 function buildMessageMarkdownSyntax(palette: TuiPalette) {
   return SyntaxStyle.fromStyles({
     keyword: { fg: toRgbaColor(palette.warning), bold: true },
@@ -2853,20 +2855,50 @@ export function App({
     let disposed = false;
     const snapshotPath = resolveWeztermThemeSnapshotPath(paths.configHomeDir);
     let lastSnapshotMtimeMs = 0;
+    let scheduledSnapshotTimer: ReturnType<typeof setTimeout> | null = null;
 
-    const applyDetectedTheme = async (clearCache = false) => {
-      const snapshotColors = await readWeztermThemeSnapshot(paths.configHomeDir);
-      if (disposed) return;
-      if (snapshotColors && hasUsableTerminalColors(snapshotColors)) {
-        const nextSignature = terminalColorSignature(snapshotColors);
-        if (nextSignature !== terminalThemeSignatureRef.current) {
-          terminalThemeSignatureRef.current = nextSignature;
-          setTerminalThemeColors(snapshotColors);
-        }
-        const detectedMode = resolveTerminalThemeMode(snapshotColors);
+    const applyResolvedColors = (colors: TerminalColors | null) => {
+      const nextSignature = terminalColorSignature(colors);
+      if (nextSignature !== terminalThemeSignatureRef.current) {
+        terminalThemeSignatureRef.current = nextSignature;
+        setTerminalThemeColors(colors);
+      }
+      if (colors) {
+        const detectedMode = resolveTerminalThemeMode(colors);
         if (detectedMode) {
           setSystemThemeMode(detectedMode);
         }
+      }
+    };
+
+    const scheduleSnapshotTheme = (
+      snapshotColors: TerminalColors,
+      transitionDelayMs: number,
+      snapshotMtimeMs: number,
+    ) => {
+      if (scheduledSnapshotTimer !== null) {
+        clearTimeout(scheduledSnapshotTimer);
+        scheduledSnapshotTimer = null;
+      }
+
+      const delayMs = Math.max(0, snapshotMtimeMs + transitionDelayMs - Date.now());
+      if (delayMs === 0) {
+        applyResolvedColors(snapshotColors);
+        return;
+      }
+
+      scheduledSnapshotTimer = setTimeout(() => {
+        scheduledSnapshotTimer = null;
+        if (disposed) return;
+        applyResolvedColors(snapshotColors);
+      }, delayMs);
+    };
+
+    const applyDetectedTheme = async (clearCache = false) => {
+      const snapshotTheme = await readWeztermThemeSnapshot(paths.configHomeDir);
+      if (disposed) return;
+      if (snapshotTheme && hasUsableTerminalColors(snapshotTheme.colors)) {
+        applyResolvedColors(snapshotTheme.colors);
         return;
       }
 
@@ -2878,15 +2910,7 @@ export function App({
           const colors = await _renderer.getPalette({ size: 16 });
           if (disposed) return;
           if (hasUsableTerminalColors(colors)) {
-            const nextSignature = terminalColorSignature(colors);
-            if (nextSignature !== terminalThemeSignatureRef.current) {
-              terminalThemeSignatureRef.current = nextSignature;
-              setTerminalThemeColors(colors);
-            }
-            const detectedMode = resolveTerminalThemeMode(colors);
-            if (detectedMode) {
-              setSystemThemeMode(detectedMode);
-            }
+            applyResolvedColors(colors);
             return;
           }
           if (terminalThemeSignatureRef.current !== "none") {
@@ -2904,12 +2928,10 @@ export function App({
 
       const detectedTheme = await detectTerminalTheme();
       if (disposed) return;
-      const nextSignature = terminalColorSignature(detectedTheme?.colors ?? null);
-      if (nextSignature !== terminalThemeSignatureRef.current) {
-        terminalThemeSignatureRef.current = nextSignature;
-        setTerminalThemeColors(detectedTheme?.colors ?? null);
+      applyResolvedColors(detectedTheme?.colors ?? null);
+      if (!detectedTheme?.colors) {
+        setSystemThemeMode(normalizeRendererThemeMode(_renderer.themeMode));
       }
-      setSystemThemeMode(detectedTheme?.mode ?? normalizeRendererThemeMode(_renderer.themeMode));
     };
 
     void applyDetectedTheme(false);
@@ -2931,17 +2953,27 @@ export function App({
                 if (disposed) return;
                 if (stat.mtimeMs !== lastSnapshotMtimeMs) {
                   lastSnapshotMtimeMs = stat.mtimeMs;
-                  void applyDetectedTheme(false);
+                  void readWeztermThemeSnapshot(paths.configHomeDir).then((snapshotTheme) => {
+                    if (disposed || !snapshotTheme) return;
+                    scheduleSnapshotTheme(
+                      snapshotTheme.colors,
+                      snapshotTheme.transitionDelayMs,
+                      stat.mtimeMs,
+                    );
+                  });
                 }
               })
               .catch(() => {});
-          }, 750)
+          }, WEZTERM_THEME_POLL_INTERVAL_MS)
         : null;
     return () => {
       disposed = true;
       _renderer.off?.(CliRenderEvents.THEME_MODE, handleThemeMode);
       if (palettePollTimer !== null) {
         clearInterval(palettePollTimer);
+      }
+      if (scheduledSnapshotTimer !== null) {
+        clearTimeout(scheduledSnapshotTimer);
       }
     };
   }, [_renderer, tuiThemeId]);

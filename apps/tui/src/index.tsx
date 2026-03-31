@@ -81,9 +81,10 @@ if (process.env.T1CODE_HEADLESS === "1") {
   const prefs = await readPrefs(paths);
   const shouldResolveTerminalTheme =
     prefs.appSettings?.theme === "system" || prefs.tuiThemeId === "system-true";
-  const storedWeztermTheme = shouldResolveTerminalTheme
+  const storedWeztermThemeSnapshot = shouldResolveTerminalTheme
     ? await readWeztermThemeSnapshot(paths.configHomeDir)
     : null;
+  const storedWeztermTheme = storedWeztermThemeSnapshot?.colors ?? null;
   const detectedTerminalTheme =
     storedWeztermTheme
       ? {

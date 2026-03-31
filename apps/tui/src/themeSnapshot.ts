@@ -3,6 +3,10 @@ import path from "node:path";
 import type { TerminalColors } from "@opentui/core";
 
 export const WEZTERM_THEME_SNAPSHOT_FILENAME = "wezterm-theme.json";
+export interface WeztermThemeSnapshot {
+  readonly colors: TerminalColors;
+  readonly transitionDelayMs: number;
+}
 
 export function resolveWeztermThemeSnapshotPath(configHomeDir: string): string {
   return path.join(configHomeDir, WEZTERM_THEME_SNAPSHOT_FILENAME);
@@ -14,7 +18,7 @@ function isHexColor(value: unknown): value is string {
 
 export async function readWeztermThemeSnapshot(
   configHomeDir: string,
-): Promise<TerminalColors | null> {
+): Promise<WeztermThemeSnapshot | null> {
   const snapshotPath = resolveWeztermThemeSnapshotPath(configHomeDir);
 
   try {
@@ -23,6 +27,7 @@ export async function readWeztermThemeSnapshot(
       palette?: unknown;
       defaultForeground?: unknown;
       defaultBackground?: unknown;
+      transitionDelayMs?: unknown;
     };
 
     if (!Array.isArray(parsed.palette)) {
@@ -40,16 +45,24 @@ export async function readWeztermThemeSnapshot(
     }
 
     return {
-      palette,
-      defaultForeground: isHexColor(parsed.defaultForeground) ? parsed.defaultForeground : null,
-      defaultBackground: isHexColor(parsed.defaultBackground) ? parsed.defaultBackground : null,
-      cursorColor: null,
-      mouseForeground: null,
-      mouseBackground: null,
-      tekForeground: null,
-      tekBackground: null,
-      highlightBackground: null,
-      highlightForeground: null,
+      colors: {
+        palette,
+        defaultForeground: isHexColor(parsed.defaultForeground) ? parsed.defaultForeground : null,
+        defaultBackground: isHexColor(parsed.defaultBackground) ? parsed.defaultBackground : null,
+        cursorColor: null,
+        mouseForeground: null,
+        mouseBackground: null,
+        tekForeground: null,
+        tekBackground: null,
+        highlightBackground: null,
+        highlightForeground: null,
+      },
+      transitionDelayMs:
+        typeof parsed.transitionDelayMs === "number" &&
+        Number.isFinite(parsed.transitionDelayMs) &&
+        parsed.transitionDelayMs >= 0
+          ? Math.floor(parsed.transitionDelayMs)
+          : 0,
     };
   } catch {
     return null;
