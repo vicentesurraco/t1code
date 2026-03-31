@@ -4,8 +4,10 @@ import { createCliRenderer } from "@opentui/core";
 import { createTestRenderer } from "@opentui/core/testing";
 import { createRoot } from "@opentui/react";
 import React from "react";
+import { DEFAULT_APP_THEME } from "@t3tools/client-core";
 import { resolveTuiPaths } from "./config";
 import { readPrefs } from "./prefs";
+import { DEFAULT_TUI_THEME_ID, detectTerminalTheme, resolveTuiTheme } from "./theme";
 import { App } from "./ui";
 
 function readBooleanEnv(value: string | undefined): boolean | undefined {
@@ -71,7 +73,18 @@ if (process.env.T1CODE_HEADLESS === "1") {
   let interruptRequestToken = 0;
   const paths = resolveTuiPaths();
   const prefs = await readPrefs(paths);
-  const rendererBackgroundColor = prefs.appSettings?.theme === "light" ? "#f5f5f5" : "#171717";
+  const detectedTerminalTheme =
+    prefs.appSettings?.theme === "system" || prefs.tuiThemeId === "system-true"
+      ? await detectTerminalTheme()
+      : null;
+  const rendererBackgroundColor = resolveTuiTheme(
+    prefs.appSettings?.theme ?? DEFAULT_APP_THEME,
+    prefs.tuiThemeId ?? DEFAULT_TUI_THEME_ID,
+    {
+      systemMode: detectedTerminalTheme?.mode ?? null,
+      terminalColors: detectedTerminalTheme?.colors ?? null,
+    },
+  ).palette.canvas;
   const renderer = await createCliRenderer({
     exitOnCtrlC: false,
     useAlternateScreen: shouldUseAlternateScreen(),
@@ -88,6 +101,10 @@ if (process.env.T1CODE_HEADLESS === "1") {
         renderer={renderer}
         interruptRequestToken={interruptRequestToken}
         onRequestExit={() => shutdown(0)}
+        initialTuiThemeId={prefs.tuiThemeId ?? null}
+        initialSystemThemeMode={detectedTerminalTheme?.mode ?? null}
+        initialTerminalThemeColors={detectedTerminalTheme?.colors ?? null}
+        {...(prefs.appSettings ? { initialAppSettings: prefs.appSettings } : {})}
       />,
     );
   };
