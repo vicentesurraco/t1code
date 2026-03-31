@@ -2875,11 +2875,16 @@ export function App({
       }
       void applyDetectedTheme(true);
     };
+    const handlePaletteRefreshSignal = () => {
+      void applyDetectedTheme(true);
+    };
 
     _renderer.on?.(CliRenderEvents.THEME_MODE, handleThemeMode);
+    process.on("SIGUSR2", handlePaletteRefreshSignal);
     return () => {
       disposed = true;
       _renderer.off?.(CliRenderEvents.THEME_MODE, handleThemeMode);
+      process.off("SIGUSR2", handlePaletteRefreshSignal);
     };
   }, [_renderer]);
 
