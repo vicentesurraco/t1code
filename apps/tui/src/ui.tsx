@@ -525,6 +525,15 @@ function normalizeRendererThemeMode(value: unknown): TuiThemeMode | null {
   return value === "light" || value === "dark" ? value : null;
 }
 
+function terminalColorSignature(colors: TerminalColors | null | undefined): string {
+  if (!hasUsableTerminalColors(colors)) return "none";
+  return [
+    colors.defaultBackground ?? "",
+    colors.defaultForeground ?? "",
+    ...colors.palette.map((value) => value ?? ""),
+  ].join("|");
+}
+
 function buildMessageMarkdownSyntax(palette: TuiPalette) {
   return SyntaxStyle.fromStyles({
     keyword: { fg: toRgbaColor(palette.warning), bold: true },
@@ -2762,6 +2771,9 @@ export function App({
   const [terminalThemeColors, setTerminalThemeColors] = useState<TerminalColors | null>(
     initialTerminalThemeColors ?? null,
   );
+  const terminalThemeSignatureRef = useRef(
+    terminalColorSignature(initialTerminalThemeColors ?? null),
+  );
   const [respondingRequestIds, setRespondingRequestIds] = useState<readonly ApprovalRequestId[]>(
     [],
   );
@@ -2847,23 +2859,37 @@ export function App({
           const colors = await _renderer.getPalette({ size: 16 });
           if (disposed) return;
           if (hasUsableTerminalColors(colors)) {
-            setTerminalThemeColors(colors);
+            const nextSignature = terminalColorSignature(colors);
+            if (nextSignature !== terminalThemeSignatureRef.current) {
+              terminalThemeSignatureRef.current = nextSignature;
+              setTerminalThemeColors(colors);
+            }
             const detectedMode = resolveTerminalThemeMode(colors);
             if (detectedMode) {
               setSystemThemeMode(detectedMode);
             }
             return;
           }
-          setTerminalThemeColors(null);
+          if (terminalThemeSignatureRef.current !== "none") {
+            terminalThemeSignatureRef.current = "none";
+            setTerminalThemeColors(null);
+          }
         } catch {
           if (disposed) return;
-          setTerminalThemeColors(null);
+          if (terminalThemeSignatureRef.current !== "none") {
+            terminalThemeSignatureRef.current = "none";
+            setTerminalThemeColors(null);
+          }
         }
       }
 
       const detectedTheme = await detectTerminalTheme();
       if (disposed) return;
-      setTerminalThemeColors(detectedTheme?.colors ?? null);
+      const nextSignature = terminalColorSignature(detectedTheme?.colors ?? null);
+      if (nextSignature !== terminalThemeSignatureRef.current) {
+        terminalThemeSignatureRef.current = nextSignature;
+        setTerminalThemeColors(detectedTheme?.colors ?? null);
+      }
       setSystemThemeMode(detectedTheme?.mode ?? normalizeRendererThemeMode(_renderer.themeMode));
     };
 
@@ -2875,18 +2901,22 @@ export function App({
       }
       void applyDetectedTheme(true);
     };
-    const handlePaletteRefreshSignal = () => {
-      void applyDetectedTheme(true);
-    };
 
     _renderer.on?.(CliRenderEvents.THEME_MODE, handleThemeMode);
-    process.on("SIGUSR2", handlePaletteRefreshSignal);
+    const palettePollTimer =
+      tuiThemeId === "system-true"
+        ? setInterval(() => {
+            void applyDetectedTheme(true);
+          }, 750)
+        : null;
     return () => {
       disposed = true;
       _renderer.off?.(CliRenderEvents.THEME_MODE, handleThemeMode);
-      process.off("SIGUSR2", handlePaletteRefreshSignal);
+      if (palettePollTimer !== null) {
+        clearInterval(palettePollTimer);
+      }
     };
-  }, [_renderer]);
+  }, [_renderer, tuiThemeId]);
 
   useEffect(() => {
     setTerminalImageSupport(resolveTerminalImageSupport(terminalRenderer));
