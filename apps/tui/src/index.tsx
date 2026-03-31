@@ -7,7 +7,13 @@ import React from "react";
 import { DEFAULT_APP_THEME } from "@t3tools/client-core";
 import { resolveTuiPaths } from "./config";
 import { readPrefs } from "./prefs";
-import { DEFAULT_TUI_THEME_ID, detectTerminalTheme, resolveTuiTheme } from "./theme";
+import {
+  DEFAULT_TUI_THEME_ID,
+  detectTerminalTheme,
+  resolveTerminalThemeMode,
+  resolveTuiTheme,
+} from "./theme";
+import { readWeztermThemeSnapshot } from "./themeSnapshot";
 import { App } from "./ui";
 
 function readBooleanEnv(value: string | undefined): boolean | undefined {
@@ -73,8 +79,18 @@ if (process.env.T1CODE_HEADLESS === "1") {
   let interruptRequestToken = 0;
   const paths = resolveTuiPaths();
   const prefs = await readPrefs(paths);
+  const shouldResolveTerminalTheme =
+    prefs.appSettings?.theme === "system" || prefs.tuiThemeId === "system-true";
+  const storedWeztermTheme = shouldResolveTerminalTheme
+    ? await readWeztermThemeSnapshot(paths.configHomeDir)
+    : null;
   const detectedTerminalTheme =
-    prefs.appSettings?.theme === "system" || prefs.tuiThemeId === "system-true"
+    storedWeztermTheme
+      ? {
+          colors: storedWeztermTheme,
+          mode: resolveTerminalThemeMode(storedWeztermTheme),
+        }
+      : shouldResolveTerminalTheme
       ? await detectTerminalTheme()
       : null;
   const rendererBackgroundColor = resolveTuiTheme(

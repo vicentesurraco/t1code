@@ -159,6 +159,7 @@ import {
   type TuiThemeId,
   type TuiThemeMode,
 } from "./theme";
+import { readWeztermThemeSnapshot, resolveWeztermThemeSnapshotPath } from "./themeSnapshot";
 import {
   buildMultiSelectContextMenuItems,
   buildProjectRemovalConfirmSteps,
@@ -2850,7 +2851,25 @@ export function App({
 
   useEffect(() => {
     let disposed = false;
+    const snapshotPath = resolveWeztermThemeSnapshotPath(paths.configHomeDir);
+    let lastSnapshotMtimeMs = 0;
+
     const applyDetectedTheme = async (clearCache = false) => {
+      const snapshotColors = await readWeztermThemeSnapshot(paths.configHomeDir);
+      if (disposed) return;
+      if (snapshotColors && hasUsableTerminalColors(snapshotColors)) {
+        const nextSignature = terminalColorSignature(snapshotColors);
+        if (nextSignature !== terminalThemeSignatureRef.current) {
+          terminalThemeSignatureRef.current = nextSignature;
+          setTerminalThemeColors(snapshotColors);
+        }
+        const detectedMode = resolveTerminalThemeMode(snapshotColors);
+        if (detectedMode) {
+          setSystemThemeMode(detectedMode);
+        }
+        return;
+      }
+
       if (_renderer.getPalette) {
         try {
           if (clearCache) {
@@ -2906,7 +2925,16 @@ export function App({
     const palettePollTimer =
       tuiThemeId === "system-true"
         ? setInterval(() => {
-            void applyDetectedTheme(true);
+            void fs
+              .stat(snapshotPath)
+              .then((stat) => {
+                if (disposed) return;
+                if (stat.mtimeMs !== lastSnapshotMtimeMs) {
+                  lastSnapshotMtimeMs = stat.mtimeMs;
+                  void applyDetectedTheme(false);
+                }
+              })
+              .catch(() => {});
           }, 750)
         : null;
     return () => {
