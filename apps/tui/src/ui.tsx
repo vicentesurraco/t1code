@@ -2851,8 +2851,12 @@ export function App({
   const updateAppSettings = useCallback((patch: Partial<AppSettings>) => {
     setAppSettings((current) => normalizeAppSettings({ ...current, ...patch }));
   }, []);
+  const resolvedSystemThemeMode =
+    appSettings.theme === "system" && hasUsableTerminalColors(terminalThemeColors)
+      ? resolveTerminalThemeMode(terminalThemeColors) ?? systemThemeMode
+      : systemThemeMode;
   const activeTheme = resolveTuiTheme(appSettings.theme, tuiThemeId, {
-    systemMode: systemThemeMode,
+    systemMode: resolvedSystemThemeMode,
     terminalColors: terminalThemeColors,
   });
   ACTIVE_TUI_THEME = activeTheme;
