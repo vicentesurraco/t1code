@@ -3,12 +3,13 @@ import type { AppTheme } from "@t3tools/client-core";
 
 export type TuiColor = string | RGBA;
 
-export const TUI_THEME_IDS = ["default", "system-true"] as const;
+export const TERMINAL_MATCH_THEME_ID = "terminal-match" as const;
+export const TUI_THEME_IDS = ["default", TERMINAL_MATCH_THEME_ID] as const;
 export type TuiThemeId = (typeof TUI_THEME_IDS)[number];
 export const DEFAULT_TUI_THEME_ID = "default" as const;
 export const TUI_THEME_LABELS: Record<TuiThemeId, string> = {
   default: "Default",
-  "system-true": "System true",
+  [TERMINAL_MATCH_THEME_ID]: "Terminal Match",
 };
 
 export type TuiThemeMode = "light" | "dark";
@@ -503,7 +504,7 @@ export function resolveTerminalThemeMode(
   return luminanceFromHex(backgroundHex) > 0.5 ? "light" : "dark";
 }
 
-function createSystemTrueTheme(colors: TerminalColors, mode: TuiThemeMode): TuiTheme | null {
+function createTerminalMatchTheme(colors: TerminalColors, mode: TuiThemeMode): TuiTheme | null {
   const backgroundHex = systemBackgroundHex(colors);
   if (!backgroundHex) return null;
 
@@ -513,7 +514,7 @@ function createSystemTrueTheme(colors: TerminalColors, mode: TuiThemeMode): TuiT
   const selectedText = selectedForeground(resolved, resolved.primary);
 
   return {
-    id: "system-true",
+    id: TERMINAL_MATCH_THEME_ID,
     mode,
     palette: {
       canvas: resolved.background,
@@ -648,7 +649,7 @@ export function resolveTuiTheme(
   const resolvedThemeId = isTuiThemeId(themeId) ? themeId : DEFAULT_TUI_THEME_ID;
   const mode = resolveTuiThemeMode(theme, options.systemMode ?? null);
   const cacheKey =
-    resolvedThemeId === "system-true"
+    resolvedThemeId === TERMINAL_MATCH_THEME_ID
       ? `${resolvedThemeId}:${mode}:${terminalColorsSignature(options.terminalColors)}`
       : `${resolvedThemeId}:${mode}`;
   const cached = THEME_CACHE.get(cacheKey);
@@ -656,11 +657,12 @@ export function resolveTuiTheme(
     return cached;
   }
 
-  if (resolvedThemeId === "system-true") {
+  if (resolvedThemeId === TERMINAL_MATCH_THEME_ID) {
     if (!hasUsableTerminalColors(options.terminalColors)) {
       return defaultThemeForMode(mode);
     }
-    const resolved = createSystemTrueTheme(options.terminalColors, mode) ?? defaultThemeForMode(mode);
+    const resolved =
+      createTerminalMatchTheme(options.terminalColors, mode) ?? defaultThemeForMode(mode);
     THEME_CACHE.set(cacheKey, resolved);
     return resolved;
   }

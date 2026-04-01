@@ -9,6 +9,7 @@ import { resolveTuiPaths } from "./config";
 import { readPrefs } from "./prefs";
 import {
   DEFAULT_TUI_THEME_ID,
+  TERMINAL_MATCH_THEME_ID,
   resolveTerminalThemeMode,
   resolveTuiTheme,
   type TuiThemeMode,
@@ -102,7 +103,7 @@ if (process.env.T1CODE_HEADLESS === "1") {
   const paths = resolveTuiPaths();
   const prefs = await readPrefs(paths);
   const shouldResolveTerminalTheme =
-    prefs.appSettings?.theme === "system" || prefs.tuiThemeId === "system-true";
+    prefs.appSettings?.theme === "system" || prefs.tuiThemeId === TERMINAL_MATCH_THEME_ID;
   const initialTheme = resolveTuiTheme(
     prefs.appSettings?.theme ?? DEFAULT_APP_THEME,
     prefs.tuiThemeId ?? DEFAULT_TUI_THEME_ID,

@@ -35,7 +35,7 @@ describe("prefs", () => {
     tempRoots.push(root);
 
     await writePrefs(paths, {
-      tuiThemeId: "system-true",
+      tuiThemeId: "terminal-match",
       selectedThreadId: "thread-1",
       locallyUnreadThreadIds: ["thread-2"],
       threadLastVisitedAtById: {
@@ -75,7 +75,7 @@ describe("prefs", () => {
     });
 
     await expect(readPrefs(paths)).resolves.toEqual({
-      tuiThemeId: "system-true",
+      tuiThemeId: "terminal-match",
       selectedThreadId: "thread-1",
       locallyUnreadThreadIds: ["thread-2"],
       threadLastVisitedAtById: {

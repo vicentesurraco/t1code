@@ -123,14 +123,14 @@ describe("resolveTuiTheme", () => {
     expect(theme.palette.canvas).toBe("#f5f5f5");
   });
 
-  it("builds the system-true preset from terminal colors", () => {
-    const theme = resolveTuiTheme("system", "system-true", {
+  it("builds the terminal-match preset from terminal colors", () => {
+    const theme = resolveTuiTheme("system", "terminal-match", {
       systemMode: "dark",
       terminalColors: SAMPLE_TERMINAL_COLORS,
     });
 
     expect(theme.mode).toBe("dark");
-    expect(theme.id).toBe("system-true");
+    expect(theme.id).toBe("terminal-match");
     expect(asHex(theme.palette.canvas)).toBe("#2e344000");
     expect(asHex(theme.palette.text)).toBe("#e5e9f0");
     expect(asHex(theme.palette.accent)).toBe("#88c0d0");
@@ -144,10 +144,10 @@ describe("resolveTuiTheme", () => {
     expect(resolveTuiTheme("dark", "not-a-theme")).toBe(DEFAULT_TUI_THEME);
   });
 
-  it("falls back to the default preset when system-true colors are unavailable", () => {
-    expect(resolveTuiTheme("dark", "system-true")).toBe(DEFAULT_TUI_THEME);
+  it("falls back to the default preset when terminal-match colors are unavailable", () => {
+    expect(resolveTuiTheme("dark", "terminal-match")).toBe(DEFAULT_TUI_THEME);
     expect(
-      resolveTuiTheme("dark", "system-true", {
+      resolveTuiTheme("dark", "terminal-match", {
         terminalColors: EMPTY_TERMINAL_COLORS,
       }),
     ).toBe(DEFAULT_TUI_THEME);

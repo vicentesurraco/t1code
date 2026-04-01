@@ -8207,7 +8207,7 @@ export function App({
                         />
                         <SettingsRow
                           title="Theme preset"
-                          description="Default uses the built-in palette. System true derives colors from your terminal palette."
+                          description="Default uses the built-in palette. Terminal Match derives colors from your terminal palette."
                           resetAction={
                             tuiThemeId !== DEFAULT_TUI_THEME_ID ? (
                               <SettingResetButton
