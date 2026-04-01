@@ -535,7 +535,7 @@ function terminalColorSignature(colors: TerminalColors | null | undefined): stri
   ].join("|");
 }
 
-const WEZTERM_THEME_POLL_INTERVAL_MS = 50;
+const WEZTERM_THEME_POLL_INTERVAL_MS = 16;
 
 function buildMessageMarkdownSyntax(palette: TuiPalette) {
   return SyntaxStyle.fromStyles({
