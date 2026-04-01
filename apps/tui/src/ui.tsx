@@ -148,7 +148,6 @@ import {
   DEFAULT_TUI_THEME,
   DEFAULT_TUI_THEME_ID,
   TUI_THEME_LABELS,
-  detectTerminalTheme,
   hasUsableTerminalColors,
   isTuiThemeId,
   resolveTerminalThemeMode,
@@ -2860,11 +2859,7 @@ export function App({
           setTerminalThemeColors(null);
         }
       }
-
-      const detectedTheme = await detectTerminalTheme();
-      if (disposed) return;
-      setTerminalThemeColors(detectedTheme?.colors ?? null);
-      setSystemThemeMode(detectedTheme?.mode ?? normalizeRendererThemeMode(_renderer.themeMode));
+      setSystemThemeMode(normalizeRendererThemeMode(_renderer.themeMode));
     };
 
     void applyDetectedTheme(false);

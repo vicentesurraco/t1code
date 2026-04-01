@@ -1,4 +1,4 @@
-import { createTerminalPalette, RGBA, rgbToHex, type TerminalColors } from "@opentui/core";
+import { RGBA, rgbToHex, type TerminalColors } from "@opentui/core";
 import type { AppTheme } from "@t3tools/client-core";
 
 export type TuiColor = string | RGBA;
@@ -110,11 +110,6 @@ export type TuiThemeMode = "light" | "dark";
 export interface ResolveTuiThemeOptions {
   systemMode?: TuiThemeMode | null;
   terminalColors?: TerminalColors | null;
-}
-
-export interface TuiDetectedTerminalTheme {
-  colors: TerminalColors;
-  mode: TuiThemeMode;
 }
 
 const DEFAULT_DARK_THEME: TuiTheme = {
@@ -565,24 +560,6 @@ export function resolveTerminalThemeMode(
   const backgroundHex = systemBackgroundHex(colors);
   if (!backgroundHex) return null;
   return luminanceFromHex(backgroundHex) > 0.5 ? "light" : "dark";
-}
-
-export async function detectTerminalTheme(
-  stdin: NodeJS.ReadStream = process.stdin,
-  stdout: NodeJS.WriteStream = process.stdout,
-): Promise<TuiDetectedTerminalTheme | null> {
-  if (!stdin.isTTY) return null;
-  const detector = createTerminalPalette(stdin, stdout);
-  try {
-    const colors = await detector.detect({ size: 16, timeout: 1_000 });
-    const mode = resolveTerminalThemeMode(colors);
-    if (!mode) return null;
-    return { colors, mode };
-  } catch {
-    return null;
-  } finally {
-    detector.cleanup();
-  }
 }
 
 function createSystemTrueTheme(colors: TerminalColors, mode: TuiThemeMode): TuiTheme | null {
