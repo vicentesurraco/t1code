@@ -3,6 +3,7 @@ import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import type {
+  CliRenderer,
   InputRenderable,
   PasteEvent,
   ScrollBoxRenderable,
@@ -147,6 +148,7 @@ import {
 import {
   DEFAULT_TUI_THEME,
   DEFAULT_TUI_THEME_ID,
+  TUI_THEME_IDS,
   TUI_THEME_LABELS,
   hasUsableTerminalColors,
   isTuiThemeId,
@@ -244,21 +246,24 @@ type PendingSendPreview = {
   createdAt: string;
   visibleUntil: number;
 };
-type TuiRenderer = {
-  destroy: () => void;
-  setBackgroundColor?: (color: TuiColor) => void;
-  setCursorColor?: (color: RGBA) => void;
-  setCursorStyle?: (options: { style: "block" | "line" | "underline"; blinking?: boolean }) => void;
-  getPalette?: (options?: { size?: number; timeout?: number }) => Promise<TerminalColors>;
-  clearPaletteCache?: () => void;
-  themeMode?: TuiThemeMode | null;
+type RendererSelection = {
+  getSelectedText(): string;
+};
+type TerminalRenderer = {
   capabilities?: {
     kitty_graphics?: boolean;
     sixel?: boolean;
   } | null;
-  resolution?: { width: number; height: number } | null;
-  on?: (event: string, handler: (...args: unknown[]) => void) => void;
-  off?: (event: string, handler: (...args: unknown[]) => void) => void;
+  resolution?: {
+    width: number;
+    height: number;
+  } | null;
+  console?: TerminalConsole | null;
+  getSelection?: () => RendererSelection | null;
+  clearSelection?: () => void;
+  on?: (event: string | symbol, handler: (...args: unknown[]) => void) => void;
+  off?: (event: string | symbol, handler: (...args: unknown[]) => void) => void;
+  writeOut?: (chunk: string) => void;
 };
 type DraftThreadState = {
   id: string;
@@ -493,7 +498,7 @@ function themedScrollboxStyle(backgroundColor: TuiColor) {
 
 const APP_VERSION = packageJson.version ?? "0.0.0";
 const THEME_OPTIONS: readonly AppTheme[] = ["system", "light", "dark"];
-const TUI_THEME_OPTIONS: readonly TuiThemeId[] = ["default", "system-true"];
+const TUI_THEME_OPTIONS = TUI_THEME_IDS;
 const TIMESTAMP_FORMAT_OPTIONS: readonly TimestampFormat[] = ["locale", "12-hour", "24-hour"];
 const TIMESTAMP_FORMAT_LABELS: Record<TimestampFormat, string> = {
   locale: "System default",
@@ -2629,7 +2634,7 @@ export function App({
   initialSystemThemeMode,
   initialTerminalThemeColors,
 }: {
-  renderer: TuiRenderer;
+  renderer: CliRenderer;
   interruptRequestToken?: number;
   onRequestExit?: () => void;
   initialAppSettings?: AppSettings;
@@ -2637,22 +2642,7 @@ export function App({
   initialSystemThemeMode?: TuiThemeMode | null;
   initialTerminalThemeColors?: TerminalColors | null;
 }) {
-  const terminalRenderer = _renderer as {
-    capabilities?: {
-      kitty_graphics?: boolean;
-      sixel?: boolean;
-    } | null;
-    resolution?: { width: number; height: number } | null;
-    writeOut?: (chunk: string) => void;
-    on?: (event: string, handler: (...args: unknown[]) => void) => void;
-    off?: (event: string, handler: (...args: unknown[]) => void) => void;
-    console?: TerminalConsole;
-    getSelection?: () => { getSelectedText: () => string } | null;
-    clearSelection?: () => void;
-    getPalette?: (options: { size: number }) => Promise<TerminalColors>;
-    themeMode?: TuiThemeMode | null;
-    clearPaletteCache?: () => void;
-  };
+  const terminalRenderer = _renderer as unknown as TerminalRenderer;
   const paths = useMemo(() => resolveTuiPaths(), []);
   const logger = useMemo(() => createT1Logger(paths.logPath), [paths.logPath]);
   const [api, setApi] = useState<T1Api | null>(null);

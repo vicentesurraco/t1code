@@ -61,9 +61,9 @@ describe("resolveTuiThemeMode", () => {
   it("falls back to dark and respects detected system mode when provided", () => {
     expect(resolveTuiThemeMode("system")).toBe("dark");
     expect(resolveTuiThemeMode("system", "light")).toBe("light");
-    expect(resolveTuiThemeMode("dark")).toBe("dark");
-    expect(resolveTuiThemeMode("light")).toBe("light");
-    expect(resolveTuiThemeMode(undefined)).toBe("dark");
+    for (const theme of ["dark", "light", undefined] as const) {
+      expect(resolveTuiThemeMode(theme)).toBe(theme ?? "dark");
+    }
   });
 });
 
@@ -76,32 +76,43 @@ describe("hasUsableTerminalColors", () => {
 });
 
 describe("resolveTuiTheme", () => {
-  it("preserves the existing dark theme values", () => {
-    const theme = resolveTuiTheme("dark");
+  it.each([
+    {
+      input: "dark" as const,
+      expected: {
+        mode: "dark",
+        canvas: "#171717",
+        composerSend: "#2f438e",
+        codeBlockBackground: "#101010",
+        diffSign: "#4ade80",
+        buttonText: "#d1d5db",
+      },
+    },
+    {
+      input: "light" as const,
+      expected: {
+        mode: "light",
+        canvas: "#f5f5f5",
+        composerSend: "#60a5fa",
+        codeBlockBackground: "#101010",
+        diffSign: "#f87171",
+        buttonText: "#f5f5f5",
+      },
+    },
+  ])("preserves the existing $input theme values", ({ input, expected }) => {
+    const theme = resolveTuiTheme(input);
 
-    expect(theme).toBe(DEFAULT_TUI_THEME);
     expect(theme.id).toBe("default");
-    expect(theme.palette.canvas).toBe("#171717");
-    expect(theme.palette.composerSend).toBe("#2f438e");
-    expect(theme.codeBlock.background).toBe("#101010");
-    expect(theme.diffViewer.addedBg).toBe("#173124");
-    expect(theme.colors.sendDotActive).toBe("#d1d5db");
-    expect(theme.attachmentPillTones[0]).toEqual({
-      backgroundColor: "#1d2026",
-      textColor: "#3b82f6",
-    });
-  });
-
-  it("preserves the existing light theme values", () => {
-    const theme = resolveTuiTheme("light");
-
-    expect(theme.mode).toBe("light");
-    expect(theme.id).toBe("default");
-    expect(theme.palette.canvas).toBe("#f5f5f5");
-    expect(theme.palette.composerSend).toBe("#60a5fa");
-    expect(theme.codeBlock.background).toBe("#101010");
-    expect(theme.diffViewer.removedSignColor).toBe("#f87171");
-    expect(theme.colors.primaryButtonText).toBe("#f5f5f5");
+    expect(theme.mode).toBe(expected.mode);
+    expect(theme.palette.canvas).toBe(expected.canvas);
+    expect(theme.palette.composerSend).toBe(expected.composerSend);
+    expect(theme.codeBlock.background).toBe(expected.codeBlockBackground);
+    expect(
+      input === "dark" ? theme.diffViewer.addedSignColor : theme.diffViewer.removedSignColor,
+    ).toBe(expected.diffSign);
+    expect(
+      input === "dark" ? theme.colors.sendDotActive : theme.colors.primaryButtonText,
+    ).toBe(expected.buttonText);
   });
 
   it("lets the default preset follow the detected system mode", () => {

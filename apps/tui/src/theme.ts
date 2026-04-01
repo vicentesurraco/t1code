@@ -3,100 +3,6 @@ import type { AppTheme } from "@t3tools/client-core";
 
 export type TuiColor = string | RGBA;
 
-export interface TuiPalette {
-  canvas: TuiColor;
-  sidebar: TuiColor;
-  main: TuiColor;
-  surface: TuiColor;
-  surfaceAlt: TuiColor;
-  input: TuiColor;
-  surfaceUser: TuiColor;
-  surfacePlan: TuiColor;
-  surfaceWarn: TuiColor;
-  surfaceInfo: TuiColor;
-  footer: TuiColor;
-  diff: TuiColor;
-  popup: TuiColor;
-  scrim: TuiColor;
-  border: TuiColor;
-  divider: TuiColor;
-  control: TuiColor;
-  controlHover: TuiColor;
-  controlActive: TuiColor;
-  controlActiveStrong: TuiColor;
-  controlInset: TuiColor;
-  controlInsetHover: TuiColor;
-  composerPanel: TuiColor;
-  composerBorder: TuiColor;
-  composerBorderMuted: TuiColor;
-  composerSend: TuiColor;
-  composerSendHover: TuiColor;
-  composerStop: TuiColor;
-  composerStopHover: TuiColor;
-  accent: TuiColor;
-  cursor: TuiColor;
-  selection: TuiColor;
-  selectionActive: TuiColor;
-  text: TuiColor;
-  muted: TuiColor;
-  subtle: TuiColor;
-  success: TuiColor;
-  info: TuiColor;
-  warning: TuiColor;
-  claude: TuiColor;
-  macRed: TuiColor;
-  macYellow: TuiColor;
-  macGreen: TuiColor;
-}
-
-export interface TuiAttachmentPillTone {
-  backgroundColor: TuiColor;
-  textColor: TuiColor;
-}
-
-export interface TuiCodeBlockColors {
-  background: TuiColor;
-  language: TuiColor;
-  copyIcon: TuiColor;
-}
-
-export interface TuiStatusColors {
-  awaitingInput: TuiColor;
-  working: TuiColor;
-  planReady: TuiColor;
-  pulse: TuiColor;
-}
-
-export interface TuiDiffViewerColors {
-  addedBg: TuiColor;
-  removedBg: TuiColor;
-  addedContentBg: TuiColor;
-  removedContentBg: TuiColor;
-  addedSignColor: TuiColor;
-  removedSignColor: TuiColor;
-}
-
-export interface TuiThemeColors {
-  workEntryErrorAccent: TuiColor;
-  destructiveIcon: TuiColor;
-  controlKnob: TuiColor;
-  primaryButtonText: TuiColor;
-  sendDotIdle: TuiColor;
-  sendDotActive: TuiColor;
-  selectedText: TuiColor;
-}
-
-export interface TuiTheme {
-  id: TuiThemeId;
-  mode: TuiThemeMode;
-  palette: TuiPalette;
-  attachmentPillTones: readonly TuiAttachmentPillTone[];
-  codeBlock: TuiCodeBlockColors;
-  status: TuiStatusColors;
-  diffViewer: TuiDiffViewerColors;
-  colors: TuiThemeColors;
-}
-
 export const TUI_THEME_IDS = ["default", "system-true"] as const;
 export type TuiThemeId = (typeof TUI_THEME_IDS)[number];
 export const DEFAULT_TUI_THEME_ID = "default" as const;
@@ -107,59 +13,84 @@ export const TUI_THEME_LABELS: Record<TuiThemeId, string> = {
 
 export type TuiThemeMode = "light" | "dark";
 
+type TuiThemeDetails = {
+  attachmentPillTones: readonly { backgroundColor: TuiColor; textColor: TuiColor }[];
+  codeBlock: { background: TuiColor; language: TuiColor; copyIcon: TuiColor };
+  status: { awaitingInput: TuiColor; working: TuiColor; planReady: TuiColor; pulse: TuiColor };
+  diffViewer: {
+    addedBg: TuiColor;
+    removedBg: TuiColor;
+    addedContentBg: TuiColor;
+    removedContentBg: TuiColor;
+    addedSignColor: TuiColor;
+    removedSignColor: TuiColor;
+  };
+  colors: {
+    workEntryErrorAccent: TuiColor;
+    destructiveIcon: TuiColor;
+    controlKnob: TuiColor;
+    primaryButtonText: TuiColor;
+    sendDotIdle: TuiColor;
+    sendDotActive: TuiColor;
+    selectedText: TuiColor;
+  };
+};
+
 export interface ResolveTuiThemeOptions {
   systemMode?: TuiThemeMode | null;
   terminalColors?: TerminalColors | null;
 }
 
-const DEFAULT_DARK_THEME: TuiTheme = {
-  id: "default",
-  mode: "dark",
-  palette: {
-    canvas: "#171717",
-    sidebar: "#151515",
-    main: "#171717",
-    surface: "#1b1b1b",
-    surfaceAlt: "#1f1f1f",
-    input: "#111111",
-    surfaceUser: "#202020",
-    surfacePlan: "#1f221c",
-    surfaceWarn: "#262016",
-    surfaceInfo: "#1d2026",
-    footer: "#171717",
-    diff: "#1b1b1b",
-    popup: "#1c1c1c",
-    scrim: "#00000099",
-    border: "#252525",
-    divider: "#2d2d2d",
-    control: "transparent",
-    controlHover: "#202020",
-    controlActive: "#292929",
-    controlActiveStrong: "#1e1e1e",
-    controlInset: "#141414",
-    controlInsetHover: "#1a1a1a",
-    composerPanel: "#1a1a1a",
-    composerBorder: "#2a3f95",
-    composerBorderMuted: "#313131",
-    composerSend: "#2f438e",
-    composerSendHover: "#3c57ba",
-    composerStop: "#dc2626",
-    composerStopHover: "#ef4444",
-    accent: "#7c87ff",
-    cursor: "#d4d4d4",
-    selection: "#1f4f95",
-    selectionActive: "#2b61b0",
-    text: "#f5f5f5",
-    muted: "#a3a3a3",
-    subtle: "#737373",
-    success: "#10b981",
-    info: "#3b82f6",
-    warning: "#f59e0b",
-    claude: "#d97757",
-    macRed: "#ff5f57",
-    macYellow: "#febc2e",
-    macGreen: "#28c840",
-  },
+const DEFAULT_DARK_PALETTE = {
+  canvas: "#171717",
+  sidebar: "#151515",
+  main: "#171717",
+  surface: "#1b1b1b",
+  surfaceAlt: "#1f1f1f",
+  input: "#111111",
+  surfaceUser: "#202020",
+  surfacePlan: "#1f221c",
+  surfaceWarn: "#262016",
+  surfaceInfo: "#1d2026",
+  footer: "#171717",
+  diff: "#1b1b1b",
+  popup: "#1c1c1c",
+  scrim: "#00000099",
+  border: "#252525",
+  divider: "#2d2d2d",
+  control: "transparent",
+  controlHover: "#202020",
+  controlActive: "#292929",
+  controlActiveStrong: "#1e1e1e",
+  controlInset: "#141414",
+  controlInsetHover: "#1a1a1a",
+  composerPanel: "#1a1a1a",
+  composerBorder: "#2a3f95",
+  composerBorderMuted: "#313131",
+  composerSend: "#2f438e",
+  composerSendHover: "#3c57ba",
+  composerStop: "#dc2626",
+  composerStopHover: "#ef4444",
+  accent: "#7c87ff",
+  cursor: "#d4d4d4",
+  selection: "#1f4f95",
+  selectionActive: "#2b61b0",
+  text: "#f5f5f5",
+  muted: "#a3a3a3",
+  subtle: "#737373",
+  success: "#10b981",
+  info: "#3b82f6",
+  warning: "#f59e0b",
+  claude: "#d97757",
+  macRed: "#ff5f57",
+  macYellow: "#febc2e",
+  macGreen: "#28c840",
+} satisfies Record<string, TuiColor>;
+
+type TuiPaletteShape = typeof DEFAULT_DARK_PALETTE;
+export type TuiPalette = { [Key in keyof TuiPaletteShape]: TuiColor };
+
+const DEFAULT_THEME_DETAILS = {
   attachmentPillTones: [
     { backgroundColor: "#1d2026", textColor: "#3b82f6" },
     { backgroundColor: "#241b2f", textColor: "#a78bfa" },
@@ -196,57 +127,67 @@ const DEFAULT_DARK_THEME: TuiTheme = {
     sendDotActive: "#d1d5db",
     selectedText: "#f5f5f5",
   },
+} satisfies TuiThemeDetails;
+
+export type TuiTheme = {
+  id: TuiThemeId;
+  mode: TuiThemeMode;
+  palette: TuiPalette;
+} & TuiThemeDetails;
+
+const DEFAULT_DARK_THEME: TuiTheme = {
+  id: "default",
+  mode: "dark",
+  palette: DEFAULT_DARK_PALETTE,
+  ...DEFAULT_THEME_DETAILS,
+};
+
+const DEFAULT_LIGHT_PALETTE: TuiPalette = {
+  ...DEFAULT_DARK_PALETTE,
+  canvas: "#f5f5f5",
+  sidebar: "#eeeeee",
+  main: "#f7f7f7",
+  surface: "#ffffff",
+  surfaceAlt: "#f1f1f1",
+  input: "#ffffff",
+  surfaceUser: "#ececec",
+  surfacePlan: "#eef6ec",
+  surfaceWarn: "#fff5e6",
+  surfaceInfo: "#eef4ff",
+  footer: "#f7f7f7",
+  diff: "#fafafa",
+  popup: "#ffffff",
+  scrim: "#00000022",
+  border: "#dddddd",
+  divider: "#d8d8d8",
+  controlHover: "#ebebeb",
+  controlActive: "#e2e2e2",
+  controlActiveStrong: "#cdcdcd",
+  controlInset: "#e7e7e7",
+  controlInsetHover: "#dddddd",
+  composerPanel: "#ffffff",
+  composerBorder: "#0891b2",
+  composerBorderMuted: "#d0d0d0",
+  composerSend: "#60a5fa",
+  composerSendHover: "#3b82f6",
+  accent: "#0891b2",
+  cursor: "#a3a3a3",
+  selection: "#dbeafe",
+  selectionActive: "#bfdbfe",
+  text: "#171717",
+  muted: "#666666",
+  subtle: "#8a8a8a",
+  success: "#059669",
+  info: "#2563eb",
+  warning: "#d97706",
+  claude: "#c96d4d",
 };
 
 const DEFAULT_LIGHT_THEME: TuiTheme = {
   ...DEFAULT_DARK_THEME,
   id: "default",
   mode: "light",
-  palette: {
-    canvas: "#f5f5f5",
-    sidebar: "#eeeeee",
-    main: "#f7f7f7",
-    surface: "#ffffff",
-    surfaceAlt: "#f1f1f1",
-    input: "#ffffff",
-    surfaceUser: "#ececec",
-    surfacePlan: "#eef6ec",
-    surfaceWarn: "#fff5e6",
-    surfaceInfo: "#eef4ff",
-    footer: "#f7f7f7",
-    diff: "#fafafa",
-    popup: "#ffffff",
-    scrim: "#00000022",
-    border: "#dddddd",
-    divider: "#d8d8d8",
-    control: "transparent",
-    controlHover: "#ebebeb",
-    controlActive: "#e2e2e2",
-    controlActiveStrong: "#cdcdcd",
-    controlInset: "#e7e7e7",
-    controlInsetHover: "#dddddd",
-    composerPanel: "#ffffff",
-    composerBorder: "#0891b2",
-    composerBorderMuted: "#d0d0d0",
-    composerSend: "#60a5fa",
-    composerSendHover: "#3b82f6",
-    composerStop: "#dc2626",
-    composerStopHover: "#ef4444",
-    accent: "#0891b2",
-    cursor: "#a3a3a3",
-    selection: "#dbeafe",
-    selectionActive: "#bfdbfe",
-    text: "#171717",
-    muted: "#666666",
-    subtle: "#8a8a8a",
-    success: "#059669",
-    info: "#2563eb",
-    warning: "#d97706",
-    claude: "#c96d4d",
-    macRed: "#ff5f57",
-    macYellow: "#febc2e",
-    macGreen: "#28c840",
-  },
+  palette: DEFAULT_LIGHT_PALETTE,
   colors: {
     ...DEFAULT_DARK_THEME.colors,
     selectedText: "#171717",
