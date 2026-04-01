@@ -6,6 +6,7 @@ export const WEZTERM_THEME_SNAPSHOT_FILENAME = "wezterm-theme.json";
 export interface WeztermThemeSnapshot {
   readonly colors: TerminalColors;
   readonly transitionDelayMs: number;
+  readonly colorScheme: string | null;
 }
 
 export function resolveWeztermThemeSnapshotPath(configHomeDir: string): string {
@@ -24,6 +25,7 @@ export async function readWeztermThemeSnapshot(
   try {
     const raw = await fs.readFile(snapshotPath, "utf8");
     const parsed = JSON.parse(raw) as {
+      colorScheme?: unknown;
       palette?: unknown;
       defaultForeground?: unknown;
       defaultBackground?: unknown;
@@ -63,6 +65,10 @@ export async function readWeztermThemeSnapshot(
         parsed.transitionDelayMs >= 0
           ? Math.floor(parsed.transitionDelayMs)
           : 0,
+      colorScheme:
+        typeof parsed.colorScheme === "string" && parsed.colorScheme.trim().length > 0
+          ? parsed.colorScheme.trim()
+          : null,
     };
   } catch {
     return null;

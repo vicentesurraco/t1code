@@ -105,7 +105,7 @@ import {
   supportsClaudeThinkingToggle,
   supportsClaudeUltrathinkKeyword,
 } from "@t3tools/shared/model";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useKeyboard } from "@opentui/react";
 import packageJson from "../package.json";
 import { resolveTuiPaths } from "./config";
@@ -537,6 +537,7 @@ function terminalColorSignature(colors: TerminalColors | null | undefined): stri
 }
 
 const WEZTERM_THEME_POLL_INTERVAL_MS = 16;
+const WEZTERM_THEME_LABEL_DURATION_MS = 1_600;
 
 function resolveSyntaxColors(theme: Pick<TuiTheme, "palette" | "mode">) {
   const { palette, mode } = theme;
@@ -2077,6 +2078,26 @@ function Badge(props: { label: string; tone?: "default" | "accent" | "warn" }) {
   );
 }
 
+function DemoThemePill(props: { label: string }) {
+  return (
+    <box
+      style={{
+        backgroundColor: PALETTE.surfaceInfo,
+        paddingLeft: 1,
+        paddingRight: 1,
+        marginRight: 1,
+        height: 1,
+        maxWidth: 32,
+        flexShrink: 1,
+        overflow: "hidden",
+        justifyContent: "center",
+      }}
+    >
+      <text content={props.label} style={{ fg: PALETTE.accent }} />
+    </box>
+  );
+}
+
 function WindowDots() {
   return (
     <box style={{ flexDirection: "row", alignItems: "center", marginRight: 2 }}>
@@ -2801,9 +2822,12 @@ export function App({
   const [terminalThemeColors, setTerminalThemeColors] = useState<TerminalColors | null>(
     initialTerminalThemeColors ?? null,
   );
+  const [weztermThemePreviewLabel, setWeztermThemePreviewLabel] = useState<string | null>(null);
   const terminalThemeSignatureRef = useRef(
     terminalColorSignature(initialTerminalThemeColors ?? null),
   );
+  const lastWeztermThemeNameRef = useRef<string | null>(null);
+  const weztermThemePreviewTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [respondingRequestIds, setRespondingRequestIds] = useState<readonly ApprovalRequestId[]>(
     [],
   );
@@ -2873,7 +2897,7 @@ export function App({
     composerDraftsByThreadIdRef.current = composerDraftsByThreadId;
   }, [composerDraftsByThreadId]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     _renderer.setBackgroundColor?.(toRgbaColor(PALETTE.canvas));
     _renderer.setCursorColor?.(toRgbaColor(PALETTE.cursor));
     _renderer.setCursorStyle?.({
@@ -2881,6 +2905,14 @@ export function App({
       blinking: false,
     });
   }, [_renderer, activeTheme.palette.canvas, activeTheme.palette.cursor]);
+
+  useEffect(() => {
+    return () => {
+      if (weztermThemePreviewTimerRef.current !== null) {
+        clearTimeout(weztermThemePreviewTimerRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     let disposed = false;
@@ -2902,26 +2934,62 @@ export function App({
       }
     };
 
+    const updateWeztermThemePreview = (colorScheme: string | null, announce: boolean) => {
+      if (!colorScheme) {
+        return;
+      }
+
+      const normalized = colorScheme.trim();
+      if (normalized.length === 0) {
+        return;
+      }
+
+      const changed = normalized !== lastWeztermThemeNameRef.current;
+      lastWeztermThemeNameRef.current = normalized;
+      if (!announce || !changed) {
+        return;
+      }
+
+      const truncated = truncateToolbarLabel(normalized, 28);
+      setWeztermThemePreviewLabel(truncated);
+      if (weztermThemePreviewTimerRef.current !== null) {
+        clearTimeout(weztermThemePreviewTimerRef.current);
+      }
+      weztermThemePreviewTimerRef.current = setTimeout(() => {
+        weztermThemePreviewTimerRef.current = null;
+        if (disposed) return;
+        setWeztermThemePreviewLabel((current) => (current === truncated ? null : current));
+      }, WEZTERM_THEME_LABEL_DURATION_MS);
+    };
+
     const scheduleSnapshotTheme = (
-      snapshotColors: TerminalColors,
-      transitionDelayMs: number,
+      snapshotTheme: Awaited<ReturnType<typeof readWeztermThemeSnapshot>>,
       snapshotMtimeMs: number,
+      announce: boolean,
     ) => {
+      if (!snapshotTheme) {
+        return;
+      }
       if (scheduledSnapshotTimer !== null) {
         clearTimeout(scheduledSnapshotTimer);
         scheduledSnapshotTimer = null;
       }
 
-      const delayMs = Math.max(0, snapshotMtimeMs + transitionDelayMs - Date.now());
+      const delayMs = Math.max(
+        0,
+        snapshotMtimeMs + snapshotTheme.transitionDelayMs - Date.now(),
+      );
       if (delayMs === 0) {
-        applyResolvedColors(snapshotColors);
+        updateWeztermThemePreview(snapshotTheme.colorScheme, announce);
+        applyResolvedColors(snapshotTheme.colors);
         return;
       }
 
       scheduledSnapshotTimer = setTimeout(() => {
         scheduledSnapshotTimer = null;
         if (disposed) return;
-        applyResolvedColors(snapshotColors);
+        updateWeztermThemePreview(snapshotTheme.colorScheme, announce);
+        applyResolvedColors(snapshotTheme.colors);
       }, delayMs);
     };
 
@@ -2929,6 +2997,7 @@ export function App({
       const snapshotTheme = await readWeztermThemeSnapshot(paths.configHomeDir);
       if (disposed) return;
       if (snapshotTheme && hasUsableTerminalColors(snapshotTheme.colors)) {
+        updateWeztermThemePreview(snapshotTheme.colorScheme, false);
         applyResolvedColors(snapshotTheme.colors);
         return;
       }
@@ -2967,6 +3036,9 @@ export function App({
 
     void applyDetectedTheme(false);
     const handleThemeMode = (nextMode: unknown) => {
+      if (tuiThemeId === "system-true") {
+        return;
+      }
       const normalizedMode = normalizeRendererThemeMode(nextMode);
       if (normalizedMode) {
         setSystemThemeMode(normalizedMode);
@@ -2986,11 +3058,7 @@ export function App({
                   lastSnapshotMtimeMs = stat.mtimeMs;
                   void readWeztermThemeSnapshot(paths.configHomeDir).then((snapshotTheme) => {
                     if (disposed || !snapshotTheme) return;
-                    scheduleSnapshotTheme(
-                      snapshotTheme.colors,
-                      snapshotTheme.transitionDelayMs,
-                      stat.mtimeMs,
-                    );
+                    scheduleSnapshotTheme(snapshotTheme, stat.mtimeMs, true);
                   });
                 }
               })
@@ -8250,6 +8318,7 @@ export function App({
               paddingRight: 1,
             }}
           >
+            {weztermThemePreviewLabel ? <DemoThemePill label={weztermThemePreviewLabel} /> : null}
             {mainView === "settings" ? (
               <ToolbarButton
                 icon="↺"
