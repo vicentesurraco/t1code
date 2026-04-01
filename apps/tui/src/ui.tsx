@@ -156,6 +156,7 @@ import {
   resolveTuiTheme,
   type TuiColor,
   type TuiPalette,
+  type TuiTheme,
   type TuiThemeId,
   type TuiThemeMode,
 } from "./theme";
@@ -537,86 +538,112 @@ function terminalColorSignature(colors: TerminalColors | null | undefined): stri
 
 const WEZTERM_THEME_POLL_INTERVAL_MS = 16;
 
-function buildMessageMarkdownSyntax(palette: TuiPalette) {
+function resolveSyntaxColors(theme: Pick<TuiTheme, "palette" | "mode">) {
+  const { palette, mode } = theme;
+  return {
+    keyword: toRgbaColor(palette.accent),
+    string: toRgbaColor(palette.success),
+    comment: toRgbaColor(mode === "light" ? palette.muted : palette.subtle),
+    number: toRgbaColor(palette.warning),
+    function: toRgbaColor(palette.info),
+    type: toRgbaColor(palette.accent),
+    operator: toRgbaColor(palette.accent),
+    variable: toRgbaColor(palette.text),
+    property: toRgbaColor(mode === "light" ? palette.accent : palette.info),
+    punctuation: toRgbaColor(palette.text),
+    delimiter: toRgbaColor(palette.muted),
+    special: toRgbaColor(palette.subtle),
+    link: toRgbaColor(palette.info),
+    linkText: toRgbaColor(palette.accent),
+    quote: toRgbaColor(palette.warning),
+    raw: toRgbaColor(palette.success),
+    rawBackground: toRgbaColor(palette.surfaceAlt),
+  };
+}
+
+function buildMessageMarkdownSyntax(theme: Pick<TuiTheme, "palette" | "mode">) {
+  const syntax = resolveSyntaxColors(theme);
   return SyntaxStyle.fromStyles({
-    keyword: { fg: toRgbaColor(palette.warning), bold: true },
-    string: { fg: RGBA.fromHex("#9bd1ff") },
-    comment: { fg: toRgbaColor(palette.subtle), italic: true },
-    number: { fg: RGBA.fromHex("#8cc8ff") },
-    function: { fg: toRgbaColor(palette.accent) },
-    type: { fg: RGBA.fromHex("#f7b267") },
-    operator: { fg: toRgbaColor(palette.warning) },
-    variable: { fg: toRgbaColor(palette.text) },
-    property: { fg: RGBA.fromHex("#8cc8ff") },
-    "punctuation.bracket": { fg: toRgbaColor(palette.text) },
-    "punctuation.delimiter": { fg: toRgbaColor(palette.muted) },
-    "punctuation.special": { fg: toRgbaColor(palette.subtle) },
-    "markup.heading": { fg: toRgbaColor(palette.text), bold: true },
-    "markup.heading.1": { fg: toRgbaColor(palette.text), bold: true, underline: true },
-    "markup.heading.2": { fg: toRgbaColor(palette.text), bold: true },
-    "markup.heading.3": { fg: toRgbaColor(palette.text), bold: true },
-    "markup.bold": { fg: toRgbaColor(palette.text), bold: true },
-    "markup.strong": { fg: toRgbaColor(palette.text), bold: true },
-    "markup.italic": { fg: toRgbaColor(palette.text), italic: true },
-    "markup.list": { fg: toRgbaColor(palette.muted) },
-    "markup.quote": { fg: toRgbaColor(palette.muted), italic: true },
-    "markup.raw": { fg: RGBA.fromHex("#9bd1ff"), bg: toRgbaColor(palette.surfaceAlt) },
-    "markup.raw.block": { fg: RGBA.fromHex("#9bd1ff"), bg: toRgbaColor(palette.surfaceAlt) },
-    "markup.raw.inline": { fg: RGBA.fromHex("#9bd1ff"), bg: toRgbaColor(palette.surfaceAlt) },
-    "markup.link": { fg: RGBA.fromHex("#7fb7ff"), underline: true },
-    "markup.link.label": { fg: RGBA.fromHex("#b7d7ff"), underline: true },
-    "markup.link.url": { fg: RGBA.fromHex("#7fb7ff"), underline: true },
-    label: { fg: toRgbaColor(palette.success) },
-    conceal: { fg: toRgbaColor(palette.subtle) },
-    default: { fg: toRgbaColor(palette.text) },
+    keyword: { fg: syntax.keyword, bold: true },
+    string: { fg: syntax.string },
+    comment: { fg: syntax.comment, italic: true },
+    number: { fg: syntax.number },
+    function: { fg: syntax.function },
+    type: { fg: syntax.type },
+    operator: { fg: syntax.operator },
+    variable: { fg: syntax.variable },
+    property: { fg: syntax.property },
+    "punctuation.bracket": { fg: syntax.punctuation },
+    "punctuation.delimiter": { fg: syntax.delimiter },
+    "punctuation.special": { fg: syntax.special },
+    "markup.heading": { fg: syntax.variable, bold: true },
+    "markup.heading.1": { fg: syntax.variable, bold: true, underline: true },
+    "markup.heading.2": { fg: syntax.variable, bold: true },
+    "markup.heading.3": { fg: syntax.variable, bold: true },
+    "markup.bold": { fg: syntax.variable, bold: true },
+    "markup.strong": { fg: syntax.variable, bold: true },
+    "markup.italic": { fg: syntax.variable, italic: true },
+    "markup.list": { fg: syntax.link },
+    "markup.quote": { fg: syntax.quote, italic: true },
+    "markup.raw": { fg: syntax.raw, bg: syntax.rawBackground },
+    "markup.raw.block": { fg: syntax.raw, bg: syntax.rawBackground },
+    "markup.raw.inline": { fg: syntax.raw, bg: syntax.rawBackground },
+    "markup.link": { fg: syntax.link, underline: true },
+    "markup.link.label": { fg: syntax.linkText, underline: true },
+    "markup.link.url": { fg: syntax.link, underline: true },
+    label: { fg: syntax.linkText },
+    conceal: { fg: syntax.special },
+    default: { fg: syntax.variable },
   });
 }
 
-function buildDiffSyntax(palette: TuiPalette) {
+function buildDiffSyntax(theme: Pick<TuiTheme, "palette" | "mode">) {
+  const syntax = resolveSyntaxColors(theme);
   return SyntaxStyle.fromStyles({
-    keyword: { fg: RGBA.fromHex("#ff7b72"), bold: true },
-    string: { fg: RGBA.fromHex("#a5d6ff") },
-    comment: { fg: RGBA.fromHex("#8b949e"), italic: true },
-    number: { fg: RGBA.fromHex("#79c0ff") },
-    function: { fg: RGBA.fromHex("#d2a8ff") },
-    type: { fg: RGBA.fromHex("#ffa657") },
-    operator: { fg: RGBA.fromHex("#ffb86b") },
-    variable: { fg: toRgbaColor(palette.text) },
-    property: { fg: RGBA.fromHex("#79c0ff") },
-    constant: { fg: RGBA.fromHex("#79c0ff") },
-    tag: { fg: RGBA.fromHex("#7ee787") },
-    attribute: { fg: RGBA.fromHex("#d2a8ff") },
-    "punctuation.bracket": { fg: RGBA.fromHex("#c9d1d9") },
-    "punctuation.delimiter": { fg: RGBA.fromHex("#c9d1d9") },
-    "punctuation.special": { fg: RGBA.fromHex("#8b949e") },
-    default: { fg: toRgbaColor(palette.text) },
+    keyword: { fg: syntax.keyword, bold: true },
+    string: { fg: syntax.string },
+    comment: { fg: syntax.comment, italic: true },
+    number: { fg: syntax.number },
+    function: { fg: syntax.function },
+    type: { fg: syntax.type },
+    operator: { fg: syntax.operator },
+    variable: { fg: syntax.variable },
+    property: { fg: syntax.property },
+    constant: { fg: syntax.number },
+    tag: { fg: syntax.string },
+    attribute: { fg: syntax.type },
+    "punctuation.bracket": { fg: syntax.punctuation },
+    "punctuation.delimiter": { fg: syntax.delimiter },
+    "punctuation.special": { fg: syntax.special },
+    default: { fg: syntax.variable },
   });
 }
 
-function buildCodeBlockSyntax(_palette: TuiPalette) {
+function buildCodeBlockSyntax(theme: Pick<TuiTheme, "palette" | "mode">) {
+  const syntax = resolveSyntaxColors(theme);
   return SyntaxStyle.fromStyles({
-    keyword: { fg: RGBA.fromHex("#c9b37e"), bold: true },
-    string: { fg: RGBA.fromHex("#9ab37f") },
-    comment: { fg: RGBA.fromHex("#6f6f6f"), italic: true },
-    number: { fg: RGBA.fromHex("#b8a07a") },
-    function: { fg: RGBA.fromHex("#c7c7c7") },
-    type: { fg: RGBA.fromHex("#b3aaa0") },
-    operator: { fg: RGBA.fromHex("#a8a8a8") },
-    variable: { fg: RGBA.fromHex("#d0d0d0") },
-    property: { fg: RGBA.fromHex("#bbbbbb") },
-    constant: { fg: RGBA.fromHex("#c4c4c4") },
-    tag: { fg: RGBA.fromHex("#c9b37e") },
-    attribute: { fg: RGBA.fromHex("#b3aaa0") },
-    "punctuation.bracket": { fg: RGBA.fromHex("#9a9a9a") },
-    "punctuation.delimiter": { fg: RGBA.fromHex("#8a8a8a") },
-    "punctuation.special": { fg: RGBA.fromHex("#7c7c7c") },
-    default: { fg: RGBA.fromHex("#d0d0d0") },
+    keyword: { fg: syntax.keyword, bold: true },
+    string: { fg: syntax.string },
+    comment: { fg: syntax.comment, italic: true },
+    number: { fg: syntax.number },
+    function: { fg: syntax.function },
+    type: { fg: syntax.type },
+    operator: { fg: syntax.operator },
+    variable: { fg: syntax.variable },
+    property: { fg: syntax.property },
+    constant: { fg: syntax.number },
+    tag: { fg: syntax.string },
+    attribute: { fg: syntax.type },
+    "punctuation.bracket": { fg: syntax.punctuation },
+    "punctuation.delimiter": { fg: syntax.delimiter },
+    "punctuation.special": { fg: syntax.special },
+    default: { fg: syntax.variable },
   });
 }
 
-let MESSAGE_MARKDOWN_SYNTAX = buildMessageMarkdownSyntax(PALETTE);
-let DIFF_SYNTAX = buildDiffSyntax(PALETTE);
-let CODE_BLOCK_SYNTAX = buildCodeBlockSyntax(PALETTE);
+let MESSAGE_MARKDOWN_SYNTAX = buildMessageMarkdownSyntax(ACTIVE_TUI_THEME);
+let DIFF_SYNTAX = buildDiffSyntax(ACTIVE_TUI_THEME);
+let CODE_BLOCK_SYNTAX = buildCodeBlockSyntax(ACTIVE_TUI_THEME);
 function nowIso(): string {
   return new Date().toISOString();
 }
@@ -2830,9 +2857,9 @@ export function App({
   });
   ACTIVE_TUI_THEME = activeTheme;
   Object.assign(PALETTE, activeTheme.palette);
-  MESSAGE_MARKDOWN_SYNTAX = buildMessageMarkdownSyntax(activeTheme.palette);
-  DIFF_SYNTAX = buildDiffSyntax(activeTheme.palette);
-  CODE_BLOCK_SYNTAX = buildCodeBlockSyntax(activeTheme.palette);
+  MESSAGE_MARKDOWN_SYNTAX = buildMessageMarkdownSyntax(activeTheme);
+  DIFF_SYNTAX = buildDiffSyntax(activeTheme);
+  CODE_BLOCK_SYNTAX = buildCodeBlockSyntax(activeTheme);
 
   useEffect(() => {
     draftThreadsByProjectIdRef.current = draftThreadsByProjectId;
