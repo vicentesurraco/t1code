@@ -10,6 +10,7 @@ import { readPrefs } from "./prefs";
 import {
   DEFAULT_TUI_THEME_ID,
   TERMINAL_MATCH_THEME_ID,
+  hasUsableTerminalColors,
   resolveTerminalThemeMode,
   resolveTuiTheme,
   type TuiThemeMode,
@@ -64,7 +65,9 @@ async function resolveRendererTerminalTheme(
     renderer.clearPaletteCache?.();
     const colors = await renderer.getPalette({ size: 16 });
     const mode = resolveTerminalThemeMode(colors) ?? fallbackMode;
-    return colors?.palette[0] ? { colors, mode } : { colors: null, mode: fallbackMode };
+    return hasUsableTerminalColors(colors)
+      ? { colors, mode }
+      : { colors: null, mode: fallbackMode };
   } catch {
     return { colors: null, mode: fallbackMode };
   }

@@ -1,7 +1,19 @@
-import { RGBA, rgbToHex, type TerminalColors } from "@opentui/core";
 import type { AppTheme } from "@t3tools/client-core";
 
-export type TuiColor = string | RGBA;
+export interface TerminalColors {
+  readonly palette: readonly (string | null)[];
+  readonly defaultForeground: string | null;
+  readonly defaultBackground: string | null;
+  readonly cursorColor: string | null;
+  readonly mouseForeground: string | null;
+  readonly mouseBackground: string | null;
+  readonly tekForeground: string | null;
+  readonly tekBackground: string | null;
+  readonly highlightBackground: string | null;
+  readonly highlightForeground: string | null;
+}
+
+export type TuiColor = string;
 
 export const TERMINAL_MATCH_THEME_ID = "terminal-match" as const;
 export const TUI_THEME_IDS = ["default", TERMINAL_MATCH_THEME_ID] as const;
@@ -201,30 +213,37 @@ function defaultThemeForMode(mode: TuiThemeMode): TuiTheme {
   return mode === "light" ? DEFAULT_LIGHT_THEME : DEFAULT_DARK_THEME;
 }
 
+type RgbaColor = {
+  readonly r: number;
+  readonly g: number;
+  readonly b: number;
+  readonly a: number;
+};
+
 interface SystemThemeCurrent {
-  readonly primary: RGBA;
-  readonly secondary: RGBA;
-  readonly accent: RGBA;
-  readonly error: RGBA;
-  readonly warning: RGBA;
-  readonly success: RGBA;
-  readonly info: RGBA;
-  readonly text: RGBA;
-  readonly textMuted: RGBA;
-  readonly selectedListItemText: RGBA;
-  readonly background: RGBA;
-  readonly backgroundPanel: RGBA;
-  readonly backgroundElement: RGBA;
-  readonly backgroundMenu: RGBA;
-  readonly border: RGBA;
-  readonly borderActive: RGBA;
-  readonly borderSubtle: RGBA;
-  readonly diffHighlightAdded: RGBA;
-  readonly diffHighlightRemoved: RGBA;
-  readonly diffAddedBg: RGBA;
-  readonly diffRemovedBg: RGBA;
-  readonly diffAddedLineNumberBg: RGBA;
-  readonly diffRemovedLineNumberBg: RGBA;
+  readonly primary: RgbaColor;
+  readonly secondary: RgbaColor;
+  readonly accent: RgbaColor;
+  readonly error: RgbaColor;
+  readonly warning: RgbaColor;
+  readonly success: RgbaColor;
+  readonly info: RgbaColor;
+  readonly text: RgbaColor;
+  readonly textMuted: RgbaColor;
+  readonly selectedListItemText: RgbaColor;
+  readonly background: RgbaColor;
+  readonly backgroundPanel: RgbaColor;
+  readonly backgroundElement: RgbaColor;
+  readonly backgroundMenu: RgbaColor;
+  readonly border: RgbaColor;
+  readonly borderActive: RgbaColor;
+  readonly borderSubtle: RgbaColor;
+  readonly diffHighlightAdded: RgbaColor;
+  readonly diffHighlightRemoved: RgbaColor;
+  readonly diffAddedBg: RgbaColor;
+  readonly diffRemovedBg: RgbaColor;
+  readonly diffAddedLineNumberBg: RgbaColor;
+  readonly diffRemovedLineNumberBg: RgbaColor;
 }
 
 type SystemTheme = SystemThemeCurrent & {
@@ -238,7 +257,7 @@ type Variant = {
   dark: HexColor | RefName;
   light: HexColor | RefName;
 };
-type ColorValue = HexColor | RefName | Variant | RGBA | number;
+type ColorValue = HexColor | RefName | Variant | RgbaColor | number;
 
 type ThemeJson = {
   defs?: Record<string, HexColor | RefName>;
@@ -267,6 +286,73 @@ const ANSI_COLOR_FALLBACKS = [
   "#ffffff",
 ] as const;
 
+function clampByte(value: number): number {
+  return Math.max(0, Math.min(255, Math.round(value)));
+}
+
+function isRgbaColor(value: unknown): value is RgbaColor {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "r" in value &&
+    "g" in value &&
+    "b" in value &&
+    "a" in value
+  );
+}
+
+function fromInts(r: number, g: number, b: number, a = 255): RgbaColor {
+  return {
+    r: clampByte(r),
+    g: clampByte(g),
+    b: clampByte(b),
+    a: clampByte(a),
+  };
+}
+
+function rgbaFromHex(hex: string): RgbaColor {
+  const normalized = hex.trim().replace(/^#/, "");
+  const expanded =
+    normalized.length === 3 || normalized.length === 4
+      ? normalized
+          .split("")
+          .map((value) => value + value)
+          .join("")
+      : normalized;
+
+  if (expanded.length !== 6 && expanded.length !== 8) {
+    throw new Error(`Unsupported color format: ${hex}`);
+  }
+
+  return fromInts(
+    Number.parseInt(expanded.slice(0, 2), 16),
+    Number.parseInt(expanded.slice(2, 4), 16),
+    Number.parseInt(expanded.slice(4, 6), 16),
+    expanded.length === 8 ? Number.parseInt(expanded.slice(6, 8), 16) : 255,
+  );
+}
+
+function formatHexChannel(value: number): string {
+  return value.toString(16).padStart(2, "0");
+}
+
+function rgbaToHex(color: RgbaColor): TuiColor {
+  const base = `#${formatHexChannel(color.r)}${formatHexChannel(color.g)}${formatHexChannel(color.b)}`;
+  return color.a === 255 ? base : `${base}${formatHexChannel(color.a)}`;
+}
+
+function luminanceFromColor(color: RgbaColor): number {
+  return (0.299 * color.r + 0.587 * color.g + 0.114 * color.b) / 255;
+}
+
+function systemBackgroundHex(colors: TerminalColors): string | null {
+  return colors.defaultBackground ?? colors.palette[0] ?? null;
+}
+
+function systemForegroundHex(colors: TerminalColors): string | null {
+  return colors.defaultForeground ?? colors.palette[7] ?? null;
+}
+
 export function isTuiThemeId(value: unknown): value is TuiThemeId {
   return typeof value === "string" && (TUI_THEME_IDS as readonly string[]).includes(value);
 }
@@ -274,48 +360,43 @@ export function isTuiThemeId(value: unknown): value is TuiThemeId {
 export function hasUsableTerminalColors(
   colors: TerminalColors | null | undefined,
 ): colors is TerminalColors {
-  return Boolean(colors?.palette[0]);
-}
-
-export function toRgbaColor(color: TuiColor): RGBA {
-  return color instanceof RGBA ? color : RGBA.fromHex(color);
-}
-
-function systemBackgroundHex(colors: TerminalColors): string | null {
-  return colors.defaultBackground ?? colors.palette[0] ?? null;
+  return Boolean(colors && systemBackgroundHex(colors) && systemForegroundHex(colors));
 }
 
 function luminanceFromHex(hex: string): number {
-  const [r, g, b] = RGBA.fromHex(hex).toInts();
-  return (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminanceFromColor(rgbaFromHex(hex));
 }
 
-function ansiToRgba(code: number): RGBA {
+function ansiCubeComponent(value: number): number {
+  return value === 0 ? 0 : value * 40 + 55;
+}
+
+function ansiToRgba(code: number): RgbaColor {
   if (code < 16) {
-    return RGBA.fromHex(ANSI_COLOR_FALLBACKS[code] ?? "#000000");
+    return rgbaFromHex(ANSI_COLOR_FALLBACKS[code] ?? "#000000");
   }
   if (code < 232) {
     const index = code - 16;
     const b = index % 6;
     const g = Math.floor(index / 6) % 6;
     const r = Math.floor(index / 36);
-    const value = (x: number) => (x === 0 ? 0 : x * 40 + 55);
-    return RGBA.fromInts(value(r), value(g), value(b));
+    return fromInts(ansiCubeComponent(r), ansiCubeComponent(g), ansiCubeComponent(b));
   }
   if (code < 256) {
-    return RGBA.fromInts((code - 232) * 10 + 8, (code - 232) * 10 + 8, (code - 232) * 10 + 8);
+    const gray = (code - 232) * 10 + 8;
+    return fromInts(gray, gray, gray);
   }
-  return RGBA.fromInts(0, 0, 0);
+  return fromInts(0, 0, 0);
 }
 
 function resolveSystemTheme(theme: ThemeJson, mode: TuiThemeMode): SystemTheme {
   const defs = theme.defs ?? {};
 
-  function resolveColor(color: ColorValue, chain: string[] = []): RGBA {
-    if (color instanceof RGBA) return color;
+  function resolveColor(color: ColorValue, chain: string[] = []): RgbaColor {
+    if (isRgbaColor(color)) return color;
     if (typeof color === "string") {
-      if (color === "transparent" || color === "none") return RGBA.fromInts(0, 0, 0, 0);
-      if (color.startsWith("#")) return RGBA.fromHex(color);
+      if (color === "transparent" || color === "none") return fromInts(0, 0, 0, 0);
+      if (color.startsWith("#")) return rgbaFromHex(color);
       if (chain.includes(color)) {
         throw new Error(`Circular color reference: ${[...chain, color].join(" -> ")}`);
       }
@@ -335,7 +416,7 @@ function resolveSystemTheme(theme: ThemeJson, mode: TuiThemeMode): SystemTheme {
     Object.entries(theme.theme)
       .filter(([key]) => key !== "selectedListItemText" && key !== "backgroundMenu")
       .map(([key, value]) => [key, resolveColor(value as ColorValue)]),
-  ) as Partial<Record<SystemThemeColor, RGBA>>;
+  ) as Partial<Record<SystemThemeColor, RgbaColor>>;
 
   const hasSelectedListItemText = theme.theme.selectedListItemText !== undefined;
   if (hasSelectedListItemText) {
@@ -356,75 +437,68 @@ function resolveSystemTheme(theme: ThemeJson, mode: TuiThemeMode): SystemTheme {
   };
 }
 
-function selectedForeground(theme: SystemTheme, bg?: RGBA): RGBA {
+function selectedForeground(theme: SystemTheme, bg?: RgbaColor): RgbaColor {
   if (theme._hasSelectedListItemText) {
     return theme.selectedListItemText;
   }
   if (theme.background.a === 0) {
-    const targetColor = bg ?? theme.primary;
-    const luminance = 0.299 * targetColor.r + 0.587 * targetColor.g + 0.114 * targetColor.b;
-    return luminance > 0.5 ? RGBA.fromInts(0, 0, 0) : RGBA.fromInts(255, 255, 255);
+    return luminanceFromColor(bg ?? theme.primary) > 0.5
+      ? fromInts(0, 0, 0)
+      : fromInts(255, 255, 255);
   }
   return theme.background;
 }
 
-function tint(base: RGBA, overlay: RGBA, alpha: number): RGBA {
-  const r = base.r + (overlay.r - base.r) * alpha;
-  const g = base.g + (overlay.g - base.g) * alpha;
-  const b = base.b + (overlay.b - base.b) * alpha;
-  return RGBA.fromInts(Math.round(r * 255), Math.round(g * 255), Math.round(b * 255));
+function tint(base: RgbaColor, overlay: RgbaColor, alpha: number): RgbaColor {
+  return fromInts(
+    base.r + (overlay.r - base.r) * alpha,
+    base.g + (overlay.g - base.g) * alpha,
+    base.b + (overlay.b - base.b) * alpha,
+    base.a,
+  );
 }
 
-function generateGrayScale(bg: RGBA, isDark: boolean): Record<number, RGBA> {
-  const grays: Record<number, RGBA> = {};
-  const bgR = bg.r * 255;
-  const bgG = bg.g * 255;
-  const bgB = bg.b * 255;
-  const luminance = 0.299 * bgR + 0.587 * bgG + 0.114 * bgB;
+function scaleChannels(bg: RgbaColor, luminance: number, nextLum: number): RgbaColor {
+  if (luminance === 0) {
+    return bg;
+  }
+
+  const ratio = nextLum / luminance;
+  return fromInts(bg.r * ratio, bg.g * ratio, bg.b * ratio, bg.a);
+}
+
+function generateGrayScale(bg: RgbaColor, isDark: boolean): Record<number, RgbaColor> {
+  const grays: Record<number, RgbaColor> = {};
+  const luminance = 0.299 * bg.r + 0.587 * bg.g + 0.114 * bg.b;
 
   for (let index = 1; index <= 12; index++) {
     const factor = index / 12;
-    let nextR: number;
-    let nextG: number;
-    let nextB: number;
+    let nextColor: RgbaColor;
 
     if (isDark) {
       if (luminance < 10) {
-        const gray = Math.floor(factor * 0.4 * 255);
-        nextR = gray;
-        nextG = gray;
-        nextB = gray;
+        const gray = factor * 0.4 * 255;
+        nextColor = fromInts(gray, gray, gray);
       } else {
         const nextLum = luminance + (255 - luminance) * factor * 0.4;
-        const ratio = nextLum / luminance;
-        nextR = Math.min(bgR * ratio, 255);
-        nextG = Math.min(bgG * ratio, 255);
-        nextB = Math.min(bgB * ratio, 255);
+        nextColor = scaleChannels(bg, luminance, nextLum);
       }
     } else if (luminance > 245) {
-      const gray = Math.floor(255 - factor * 0.4 * 255);
-      nextR = gray;
-      nextG = gray;
-      nextB = gray;
+      const gray = 255 - factor * 0.4 * 255;
+      nextColor = fromInts(gray, gray, gray);
     } else {
       const nextLum = luminance * (1 - factor * 0.4);
-      const ratio = nextLum / luminance;
-      nextR = Math.max(bgR * ratio, 0);
-      nextG = Math.max(bgG * ratio, 0);
-      nextB = Math.max(bgB * ratio, 0);
+      nextColor = scaleChannels(bg, luminance, nextLum);
     }
 
-    grays[index] = RGBA.fromInts(Math.floor(nextR), Math.floor(nextG), Math.floor(nextB));
+    grays[index] = nextColor;
   }
 
   return grays;
 }
 
-function generateMutedTextColor(bg: RGBA, isDark: boolean): RGBA {
-  const bgR = bg.r * 255;
-  const bgG = bg.g * 255;
-  const bgB = bg.b * 255;
-  const luminance = 0.299 * bgR + 0.587 * bgG + 0.114 * bgB;
+function generateMutedTextColor(bg: RgbaColor, isDark: boolean): RgbaColor {
+  const luminance = 0.299 * bg.r + 0.587 * bg.g + 0.114 * bg.b;
   const gray = isDark
     ? luminance < 10
       ? 180
@@ -432,26 +506,26 @@ function generateMutedTextColor(bg: RGBA, isDark: boolean): RGBA {
     : luminance > 245
       ? 75
       : Math.max(Math.floor(100 - (255 - luminance) * 0.2), 60);
-  return RGBA.fromInts(gray, gray, gray);
+  return fromInts(gray, gray, gray);
 }
 
 function generateSystem(colors: TerminalColors, mode: TuiThemeMode): ThemeJson {
   const backgroundHex = systemBackgroundHex(colors);
-  const foregroundHex = colors.defaultForeground ?? colors.palette[7] ?? null;
+  const foregroundHex = systemForegroundHex(colors);
   if (!backgroundHex || !foregroundHex) {
     throw new Error("Terminal palette is incomplete");
   }
 
-  const bg = RGBA.fromHex(backgroundHex);
-  const fg = RGBA.fromHex(foregroundHex);
-  const transparent = RGBA.fromValues(bg.r, bg.g, bg.b, 0);
+  const bg = rgbaFromHex(backgroundHex);
+  const fg = rgbaFromHex(foregroundHex);
+  const transparent = fromInts(bg.r, bg.g, bg.b, 0);
   const isDark = mode === "dark";
   const grays = generateGrayScale(bg, isDark);
   const textMuted = generateMutedTextColor(bg, isDark);
   const gray = (index: number) => grays[index] ?? bg;
   const colorAt = (index: number) => {
     const value = colors.palette[index];
-    return value ? RGBA.fromHex(value) : ansiToRgba(index);
+    return value ? rgbaFromHex(value) : ansiToRgba(index);
   };
 
   const ansi = {
@@ -517,109 +591,111 @@ function createTerminalMatchTheme(colors: TerminalColors, mode: TuiThemeMode): T
     id: TERMINAL_MATCH_THEME_ID,
     mode,
     palette: {
-      canvas: resolved.background,
-      sidebar: resolved.backgroundPanel,
-      main: resolved.background,
-      surface: resolved.backgroundPanel,
-      surfaceAlt: resolved.backgroundElement,
-      input: resolved.backgroundElement,
-      surfaceUser: resolved.backgroundPanel,
-      surfacePlan: tint(resolved.backgroundPanel, resolved.secondary, isDark ? 0.14 : 0.1),
-      surfaceWarn: tint(resolved.backgroundPanel, resolved.warning, isDark ? 0.16 : 0.1),
-      surfaceInfo: tint(resolved.backgroundPanel, resolved.info, isDark ? 0.14 : 0.1),
-      footer: resolved.background,
-      diff: resolved.backgroundPanel,
-      popup: resolved.backgroundMenu,
+      canvas: rgbaToHex(resolved.background),
+      sidebar: rgbaToHex(resolved.backgroundPanel),
+      main: rgbaToHex(resolved.background),
+      surface: rgbaToHex(resolved.backgroundPanel),
+      surfaceAlt: rgbaToHex(resolved.backgroundElement),
+      input: rgbaToHex(resolved.backgroundElement),
+      surfaceUser: rgbaToHex(resolved.backgroundPanel),
+      surfacePlan: rgbaToHex(
+        tint(resolved.backgroundPanel, resolved.secondary, isDark ? 0.14 : 0.1),
+      ),
+      surfaceWarn: rgbaToHex(tint(resolved.backgroundPanel, resolved.warning, isDark ? 0.16 : 0.1)),
+      surfaceInfo: rgbaToHex(tint(resolved.backgroundPanel, resolved.info, isDark ? 0.14 : 0.1)),
+      footer: rgbaToHex(resolved.background),
+      diff: rgbaToHex(resolved.backgroundPanel),
+      popup: rgbaToHex(resolved.backgroundMenu),
       scrim: isDark ? "#00000099" : "#00000022",
-      border: resolved.border,
-      divider: resolved.borderSubtle,
+      border: rgbaToHex(resolved.border),
+      divider: rgbaToHex(resolved.borderSubtle),
       control: "transparent",
-      controlHover: resolved.backgroundElement,
-      controlActive: resolved.backgroundElement,
-      controlActiveStrong: resolved.backgroundMenu,
-      controlInset: resolved.backgroundPanel,
-      controlInsetHover: resolved.backgroundElement,
-      composerPanel: resolved.backgroundElement,
-      composerBorder: resolved.primary,
-      composerBorderMuted: resolved.borderSubtle,
-      composerSend: resolved.primary,
-      composerSendHover: resolved.accent,
-      composerStop: resolved.error,
-      composerStopHover: resolved.diffHighlightRemoved,
-      accent: resolved.accent,
-      cursor: resolved.text,
-      selection: resolved.primary,
-      selectionActive: resolved.accent,
-      text: resolved.text,
-      muted: resolved.textMuted,
-      subtle: resolved.borderActive,
-      success: resolved.success,
-      info: resolved.info,
-      warning: resolved.warning,
-      claude: resolved.secondary,
+      controlHover: rgbaToHex(resolved.backgroundElement),
+      controlActive: rgbaToHex(resolved.backgroundElement),
+      controlActiveStrong: rgbaToHex(resolved.backgroundMenu),
+      controlInset: rgbaToHex(resolved.backgroundPanel),
+      controlInsetHover: rgbaToHex(resolved.backgroundElement),
+      composerPanel: rgbaToHex(resolved.backgroundElement),
+      composerBorder: rgbaToHex(resolved.primary),
+      composerBorderMuted: rgbaToHex(resolved.borderSubtle),
+      composerSend: rgbaToHex(resolved.primary),
+      composerSendHover: rgbaToHex(resolved.accent),
+      composerStop: rgbaToHex(resolved.error),
+      composerStopHover: rgbaToHex(resolved.diffHighlightRemoved),
+      accent: rgbaToHex(resolved.accent),
+      cursor: rgbaToHex(resolved.text),
+      selection: rgbaToHex(resolved.primary),
+      selectionActive: rgbaToHex(resolved.accent),
+      text: rgbaToHex(resolved.text),
+      muted: rgbaToHex(resolved.textMuted),
+      subtle: rgbaToHex(resolved.borderActive),
+      success: rgbaToHex(resolved.success),
+      info: rgbaToHex(resolved.info),
+      warning: rgbaToHex(resolved.warning),
+      claude: rgbaToHex(resolved.secondary),
       macRed: "#ff5f57",
       macYellow: "#febc2e",
       macGreen: "#28c840",
     },
     attachmentPillTones: [
       {
-        backgroundColor: tint(resolved.backgroundElement, resolved.primary, toneAlpha),
-        textColor: resolved.primary,
+        backgroundColor: rgbaToHex(tint(resolved.backgroundElement, resolved.primary, toneAlpha)),
+        textColor: rgbaToHex(resolved.primary),
       },
       {
-        backgroundColor: tint(resolved.backgroundElement, resolved.secondary, toneAlpha),
-        textColor: resolved.secondary,
+        backgroundColor: rgbaToHex(tint(resolved.backgroundElement, resolved.secondary, toneAlpha)),
+        textColor: rgbaToHex(resolved.secondary),
       },
       {
-        backgroundColor: tint(resolved.backgroundElement, resolved.warning, toneAlpha),
-        textColor: resolved.warning,
+        backgroundColor: rgbaToHex(tint(resolved.backgroundElement, resolved.warning, toneAlpha)),
+        textColor: rgbaToHex(resolved.warning),
       },
       {
-        backgroundColor: tint(resolved.backgroundElement, resolved.error, toneAlpha),
-        textColor: resolved.error,
+        backgroundColor: rgbaToHex(tint(resolved.backgroundElement, resolved.error, toneAlpha)),
+        textColor: rgbaToHex(resolved.error),
       },
       {
-        backgroundColor: tint(resolved.backgroundElement, resolved.success, toneAlpha),
-        textColor: resolved.success,
+        backgroundColor: rgbaToHex(tint(resolved.backgroundElement, resolved.success, toneAlpha)),
+        textColor: rgbaToHex(resolved.success),
       },
       {
-        backgroundColor: tint(resolved.backgroundElement, resolved.info, toneAlpha),
-        textColor: resolved.info,
+        backgroundColor: rgbaToHex(tint(resolved.backgroundElement, resolved.info, toneAlpha)),
+        textColor: rgbaToHex(resolved.info),
       },
     ],
     codeBlock: {
-      background: resolved.backgroundElement,
-      language: resolved.textMuted,
-      copyIcon: resolved.textMuted,
+      background: rgbaToHex(resolved.backgroundElement),
+      language: rgbaToHex(resolved.textMuted),
+      copyIcon: rgbaToHex(resolved.textMuted),
     },
     status: {
-      awaitingInput: resolved.primary,
-      working: resolved.info,
-      planReady: resolved.secondary,
-      pulse: resolved.accent,
+      awaitingInput: rgbaToHex(resolved.primary),
+      working: rgbaToHex(resolved.info),
+      planReady: rgbaToHex(resolved.secondary),
+      pulse: rgbaToHex(resolved.accent),
     },
     diffViewer: {
-      addedBg: resolved.diffAddedLineNumberBg,
-      removedBg: resolved.diffRemovedLineNumberBg,
-      addedContentBg: resolved.diffAddedBg,
-      removedContentBg: resolved.diffRemovedBg,
-      addedSignColor: resolved.diffHighlightAdded,
-      removedSignColor: resolved.diffHighlightRemoved,
+      addedBg: rgbaToHex(resolved.diffAddedLineNumberBg),
+      removedBg: rgbaToHex(resolved.diffRemovedLineNumberBg),
+      addedContentBg: rgbaToHex(resolved.diffAddedBg),
+      removedContentBg: rgbaToHex(resolved.diffRemovedBg),
+      addedSignColor: rgbaToHex(resolved.diffHighlightAdded),
+      removedSignColor: rgbaToHex(resolved.diffHighlightRemoved),
     },
     colors: {
-      workEntryErrorAccent: resolved.diffHighlightRemoved,
-      destructiveIcon: resolved.error,
-      controlKnob: selectedText,
-      primaryButtonText: selectedText,
-      sendDotIdle: resolved.textMuted,
-      sendDotActive: selectedText,
-      selectedText,
+      workEntryErrorAccent: rgbaToHex(resolved.diffHighlightRemoved),
+      destructiveIcon: rgbaToHex(resolved.error),
+      controlKnob: rgbaToHex(selectedText),
+      primaryButtonText: rgbaToHex(selectedText),
+      sendDotIdle: rgbaToHex(resolved.textMuted),
+      sendDotActive: rgbaToHex(selectedText),
+      selectedText: rgbaToHex(selectedText),
     },
   };
 }
 
 function terminalColorsSignature(colors: TerminalColors | null | undefined): string {
-  if (!hasUsableTerminalColors(colors)) return "none";
+  if (!colors) return "none";
   return [
     colors.defaultBackground ?? "",
     colors.defaultForeground ?? "",
@@ -658,18 +734,25 @@ export function resolveTuiTheme(
   }
 
   if (resolvedThemeId === TERMINAL_MATCH_THEME_ID) {
+    const fallback = defaultThemeForMode(mode);
     if (!hasUsableTerminalColors(options.terminalColors)) {
-      return defaultThemeForMode(mode);
+      THEME_CACHE.set(cacheKey, fallback);
+      return fallback;
     }
-    const resolved =
-      createTerminalMatchTheme(options.terminalColors, mode) ?? defaultThemeForMode(mode);
-    THEME_CACHE.set(cacheKey, resolved);
-    return resolved;
+
+    try {
+      const resolved = createTerminalMatchTheme(options.terminalColors, mode) ?? fallback;
+      THEME_CACHE.set(cacheKey, resolved);
+      return resolved;
+    } catch {
+      THEME_CACHE.set(cacheKey, fallback);
+      return fallback;
+    }
   }
 
   return defaultThemeForMode(mode);
 }
 
 export function colorToHex(color: TuiColor): string {
-  return color instanceof RGBA ? rgbToHex(color) : color;
+  return color;
 }

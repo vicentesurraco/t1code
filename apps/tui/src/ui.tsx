@@ -153,7 +153,6 @@ import {
   hasUsableTerminalColors,
   isTuiThemeId,
   resolveTerminalThemeMode,
-  toRgbaColor,
   resolveTuiTheme,
   type TuiColor,
   type TuiPalette,
@@ -529,38 +528,42 @@ function normalizeRendererThemeMode(value: unknown): TuiThemeMode | null {
   return value === "light" || value === "dark" ? value : null;
 }
 
+function toRendererColor(color: TuiColor): RGBA {
+  return RGBA.fromHex(color);
+}
+
 function buildMessageMarkdownSyntax(palette: TuiPalette) {
   return SyntaxStyle.fromStyles({
-    keyword: { fg: toRgbaColor(palette.warning), bold: true },
+    keyword: { fg: toRendererColor(palette.warning), bold: true },
     string: { fg: RGBA.fromHex("#9bd1ff") },
-    comment: { fg: toRgbaColor(palette.subtle), italic: true },
+    comment: { fg: toRendererColor(palette.subtle), italic: true },
     number: { fg: RGBA.fromHex("#8cc8ff") },
-    function: { fg: toRgbaColor(palette.accent) },
+    function: { fg: toRendererColor(palette.accent) },
     type: { fg: RGBA.fromHex("#f7b267") },
-    operator: { fg: toRgbaColor(palette.warning) },
-    variable: { fg: toRgbaColor(palette.text) },
+    operator: { fg: toRendererColor(palette.warning) },
+    variable: { fg: toRendererColor(palette.text) },
     property: { fg: RGBA.fromHex("#8cc8ff") },
-    "punctuation.bracket": { fg: toRgbaColor(palette.text) },
-    "punctuation.delimiter": { fg: toRgbaColor(palette.muted) },
-    "punctuation.special": { fg: toRgbaColor(palette.subtle) },
-    "markup.heading": { fg: toRgbaColor(palette.text), bold: true },
-    "markup.heading.1": { fg: toRgbaColor(palette.text), bold: true, underline: true },
-    "markup.heading.2": { fg: toRgbaColor(palette.text), bold: true },
-    "markup.heading.3": { fg: toRgbaColor(palette.text), bold: true },
-    "markup.bold": { fg: toRgbaColor(palette.text), bold: true },
-    "markup.strong": { fg: toRgbaColor(palette.text), bold: true },
-    "markup.italic": { fg: toRgbaColor(palette.text), italic: true },
-    "markup.list": { fg: toRgbaColor(palette.muted) },
-    "markup.quote": { fg: toRgbaColor(palette.muted), italic: true },
-    "markup.raw": { fg: RGBA.fromHex("#9bd1ff"), bg: toRgbaColor(palette.surfaceAlt) },
-    "markup.raw.block": { fg: RGBA.fromHex("#9bd1ff"), bg: toRgbaColor(palette.surfaceAlt) },
-    "markup.raw.inline": { fg: RGBA.fromHex("#9bd1ff"), bg: toRgbaColor(palette.surfaceAlt) },
+    "punctuation.bracket": { fg: toRendererColor(palette.text) },
+    "punctuation.delimiter": { fg: toRendererColor(palette.muted) },
+    "punctuation.special": { fg: toRendererColor(palette.subtle) },
+    "markup.heading": { fg: toRendererColor(palette.text), bold: true },
+    "markup.heading.1": { fg: toRendererColor(palette.text), bold: true, underline: true },
+    "markup.heading.2": { fg: toRendererColor(palette.text), bold: true },
+    "markup.heading.3": { fg: toRendererColor(palette.text), bold: true },
+    "markup.bold": { fg: toRendererColor(palette.text), bold: true },
+    "markup.strong": { fg: toRendererColor(palette.text), bold: true },
+    "markup.italic": { fg: toRendererColor(palette.text), italic: true },
+    "markup.list": { fg: toRendererColor(palette.muted) },
+    "markup.quote": { fg: toRendererColor(palette.muted), italic: true },
+    "markup.raw": { fg: RGBA.fromHex("#9bd1ff"), bg: toRendererColor(palette.surfaceAlt) },
+    "markup.raw.block": { fg: RGBA.fromHex("#9bd1ff"), bg: toRendererColor(palette.surfaceAlt) },
+    "markup.raw.inline": { fg: RGBA.fromHex("#9bd1ff"), bg: toRendererColor(palette.surfaceAlt) },
     "markup.link": { fg: RGBA.fromHex("#7fb7ff"), underline: true },
     "markup.link.label": { fg: RGBA.fromHex("#b7d7ff"), underline: true },
     "markup.link.url": { fg: RGBA.fromHex("#7fb7ff"), underline: true },
-    label: { fg: toRgbaColor(palette.success) },
-    conceal: { fg: toRgbaColor(palette.subtle) },
-    default: { fg: toRgbaColor(palette.text) },
+    label: { fg: toRendererColor(palette.success) },
+    conceal: { fg: toRendererColor(palette.subtle) },
+    default: { fg: toRendererColor(palette.text) },
   });
 }
 
@@ -573,7 +576,7 @@ function buildDiffSyntax(palette: TuiPalette) {
     function: { fg: RGBA.fromHex("#d2a8ff") },
     type: { fg: RGBA.fromHex("#ffa657") },
     operator: { fg: RGBA.fromHex("#ffb86b") },
-    variable: { fg: toRgbaColor(palette.text) },
+    variable: { fg: toRendererColor(palette.text) },
     property: { fg: RGBA.fromHex("#79c0ff") },
     constant: { fg: RGBA.fromHex("#79c0ff") },
     tag: { fg: RGBA.fromHex("#7ee787") },
@@ -581,7 +584,7 @@ function buildDiffSyntax(palette: TuiPalette) {
     "punctuation.bracket": { fg: RGBA.fromHex("#c9d1d9") },
     "punctuation.delimiter": { fg: RGBA.fromHex("#c9d1d9") },
     "punctuation.special": { fg: RGBA.fromHex("#8b949e") },
-    default: { fg: toRgbaColor(palette.text) },
+    default: { fg: toRendererColor(palette.text) },
   });
 }
 
@@ -2740,7 +2743,7 @@ export function App({
   const [selectedThreadIds, setSelectedThreadIds] = useState<ReadonlySet<string>>(() => new Set());
   const [selectionAnchorThreadId, setSelectionAnchorThreadId] = useState<string | null>(null);
   const [appSettings, setAppSettings] = useState<AppSettings>(() =>
-    normalizeAppSettings({ ...DEFAULT_APP_SETTINGS, ...(initialAppSettings ?? {}) }),
+    normalizeAppSettings({ ...DEFAULT_APP_SETTINGS, ...initialAppSettings }),
   );
   const [tuiThemeId, setTuiThemeId] = useState<TuiThemeId>(() =>
     isTuiThemeId(initialTuiThemeId) ? initialTuiThemeId : DEFAULT_TUI_THEME_ID,
@@ -2817,8 +2820,8 @@ export function App({
   }, [composerDraftsByThreadId]);
 
   useEffect(() => {
-    _renderer.setBackgroundColor?.(toRgbaColor(PALETTE.canvas));
-    _renderer.setCursorColor?.(toRgbaColor(PALETTE.cursor));
+    _renderer.setBackgroundColor?.(toRendererColor(PALETTE.canvas));
+    _renderer.setCursorColor?.(toRendererColor(PALETTE.cursor));
     _renderer.setCursorStyle?.({
       style: "block",
       blinking: false,
