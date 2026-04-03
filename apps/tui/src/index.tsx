@@ -1,20 +1,14 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { createCliRenderer, type TerminalColors } from "@opentui/core";
+import { createCliRenderer } from "@opentui/core";
 import { createTestRenderer } from "@opentui/core/testing";
 import { createRoot } from "@opentui/react";
 import React from "react";
 import { DEFAULT_APP_THEME } from "@t3tools/client-core";
 import { resolveTuiPaths } from "./config";
 import { readPrefs } from "./prefs";
-import {
-  DEFAULT_TUI_THEME_ID,
-  TERMINAL_MATCH_THEME_ID,
-  hasUsableTerminalColors,
-  resolveTerminalThemeMode,
-  resolveTuiTheme,
-  type TuiThemeMode,
-} from "./theme";
+import { resolveRendererTheme, shouldResolveRendererTheme } from "./rendererTheme";
+import { DEFAULT_TUI_THEME_ID, resolveTuiTheme } from "./theme";
 import { App } from "./ui";
 
 function readBooleanEnv(value: string | undefined): boolean | undefined {
@@ -46,31 +40,6 @@ function shouldUseMouse(env: NodeJS.ProcessEnv = process.env): boolean {
 
 function shouldEnableMouseMovement(env: NodeJS.ProcessEnv = process.env): boolean {
   return readBooleanEnv(env.T1CODE_ENABLE_MOUSE_MOVEMENT) ?? false;
-}
-
-function normalizeRendererThemeMode(value: unknown): TuiThemeMode | null {
-  return value === "light" || value === "dark" ? value : null;
-}
-
-async function resolveRendererTerminalTheme(
-  renderer: Awaited<ReturnType<typeof createCliRenderer>>,
-): Promise<{ colors: TerminalColors | null; mode: TuiThemeMode | null }> {
-  const fallbackMode = normalizeRendererThemeMode(renderer.themeMode);
-
-  if (!renderer.getPalette) {
-    return { colors: null, mode: fallbackMode };
-  }
-
-  try {
-    renderer.clearPaletteCache?.();
-    const colors = await renderer.getPalette({ size: 16 });
-    const mode = resolveTerminalThemeMode(colors) ?? fallbackMode;
-    return hasUsableTerminalColors(colors)
-      ? { colors, mode }
-      : { colors: null, mode: fallbackMode };
-  } catch {
-    return { colors: null, mode: fallbackMode };
-  }
 }
 
 if (process.env.T1CODE_HEADLESS === "1") {
@@ -105,8 +74,10 @@ if (process.env.T1CODE_HEADLESS === "1") {
   let interruptRequestToken = 0;
   const paths = resolveTuiPaths();
   const prefs = await readPrefs(paths);
-  const shouldResolveTerminalTheme =
-    prefs.appSettings?.theme === "system" || prefs.tuiThemeId === TERMINAL_MATCH_THEME_ID;
+  const shouldResolveTerminalTheme = shouldResolveRendererTheme(
+    prefs.appSettings?.theme ?? DEFAULT_APP_THEME,
+    prefs.tuiThemeId ?? DEFAULT_TUI_THEME_ID,
+  );
   const initialTheme = resolveTuiTheme(
     prefs.appSettings?.theme ?? DEFAULT_APP_THEME,
     prefs.tuiThemeId ?? DEFAULT_TUI_THEME_ID,
@@ -120,8 +91,8 @@ if (process.env.T1CODE_HEADLESS === "1") {
     ...(!shouldResolveTerminalTheme ? { backgroundColor: initialTheme.palette.canvas } : {}),
   });
   const detectedTerminalTheme = shouldResolveTerminalTheme
-    ? await resolveRendererTerminalTheme(renderer)
-    : { colors: null, mode: null };
+    ? await resolveRendererTheme(renderer, { clearCache: true })
+    : { colors: null, mode: null, durationMs: 0 };
   const rendererTheme = resolveTuiTheme(
     prefs.appSettings?.theme ?? DEFAULT_APP_THEME,
     prefs.tuiThemeId ?? DEFAULT_TUI_THEME_ID,

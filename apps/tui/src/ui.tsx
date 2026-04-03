@@ -9,7 +9,6 @@ import type {
   ScrollBoxRenderable,
   TerminalConsole,
   TextareaRenderable,
-  TerminalColors,
 } from "@opentui/core";
 import {
   CliRenderEvents,
@@ -135,6 +134,11 @@ import {
 } from "./messageMarkdown";
 import { openExternalUrl } from "./openExternal";
 import { type TuiPrefs, readPrefs, writePrefs } from "./prefs";
+import {
+  normalizeRendererThemeMode,
+  resolveRendererTheme,
+  shouldResolveRendererTheme,
+} from "./rendererTheme";
 import { resolveTuiResponsiveLayout, TUI_SIDEBAR_WIDTH } from "./responsiveLayout";
 import { resolveAttachedServerConnection, startServerSupervisor } from "./serverSupervisor";
 import { createCoalescedRefreshRunner } from "./snapshotRefresh";
@@ -150,12 +154,11 @@ import {
   DEFAULT_TUI_THEME_ID,
   TUI_THEME_IDS,
   TUI_THEME_LABELS,
-  hasUsableTerminalColors,
   isTuiThemeId,
-  resolveTerminalThemeMode,
   resolveTuiTheme,
   type TuiColor,
   type TuiPalette,
+  type TerminalColors,
   type TuiThemeId,
   type TuiThemeMode,
 } from "./theme";
@@ -523,10 +526,6 @@ const INSTALL_PROVIDER_SETTINGS: readonly InstallProviderSettings[] = [
     binaryDescription: "Leave blank to use claude from your PATH.",
   },
 ] as const;
-
-function normalizeRendererThemeMode(value: unknown): TuiThemeMode | null {
-  return value === "light" || value === "dark" ? value : null;
-}
 
 function toRendererColor(color: TuiColor): RGBA {
   return RGBA.fromHex(color);
@@ -2801,6 +2800,7 @@ export function App({
   const updateAppSettings = useCallback((patch: Partial<AppSettings>) => {
     setAppSettings((current) => normalizeAppSettings({ ...current, ...patch }));
   }, []);
+  const shouldResolveTerminalTheme = shouldResolveRendererTheme(appSettings.theme, tuiThemeId);
   const activeTheme = resolveTuiTheme(appSettings.theme, tuiThemeId, {
     systemMode: systemThemeMode,
     terminalColors: terminalThemeColors,
@@ -2831,31 +2831,21 @@ export function App({
   useEffect(() => {
     let disposed = false;
     const applyDetectedTheme = async (clearCache = false) => {
-      if (_renderer.getPalette) {
-        try {
-          if (clearCache) {
-            _renderer.clearPaletteCache?.();
-          }
-          const colors = await _renderer.getPalette({ size: 16 });
-          if (disposed) return;
-          if (hasUsableTerminalColors(colors)) {
-            setTerminalThemeColors(colors);
-            const detectedMode = resolveTerminalThemeMode(colors);
-            if (detectedMode) {
-              setSystemThemeMode(detectedMode);
-            }
-            return;
-          }
-          setTerminalThemeColors(null);
-        } catch {
-          if (disposed) return;
-          setTerminalThemeColors(null);
-        }
-      }
-      setSystemThemeMode(normalizeRendererThemeMode(_renderer.themeMode));
+      const detectedTheme = shouldResolveTerminalTheme
+        ? await resolveRendererTheme(_renderer, { clearCache })
+        : { colors: null, mode: normalizeRendererThemeMode(_renderer.themeMode), durationMs: 0 };
+      if (disposed) return;
+      setTerminalThemeColors(detectedTheme.colors);
+      setSystemThemeMode(detectedTheme.mode);
     };
 
     void applyDetectedTheme(false);
+    if (!shouldResolveTerminalTheme) {
+      return () => {
+        disposed = true;
+      };
+    }
+
     const handleThemeMode = (nextMode: unknown) => {
       const normalizedMode = normalizeRendererThemeMode(nextMode);
       if (normalizedMode) {
@@ -2869,7 +2859,7 @@ export function App({
       disposed = true;
       _renderer.off?.(CliRenderEvents.THEME_MODE, handleThemeMode);
     };
-  }, [_renderer]);
+  }, [_renderer, shouldResolveTerminalTheme]);
 
   useEffect(() => {
     setTerminalImageSupport(resolveTerminalImageSupport(terminalRenderer));
