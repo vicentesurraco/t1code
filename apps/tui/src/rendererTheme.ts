@@ -3,8 +3,8 @@ import type { AppTheme } from "@t3tools/client-core";
 import {
   TERMINAL_MATCH_THEME_ID,
   hasUsableTerminalColors,
-  resolveTerminalThemeMode,
   type TerminalColors,
+  type TuiThemeId,
   type TuiThemeMode,
 } from "./theme";
 
@@ -14,50 +14,50 @@ export interface ThemeAwareRenderer {
   clearPaletteCache?: () => void;
 }
 
-export interface ResolvedRendererTheme {
+export interface ResolvedTerminalPalette {
   readonly colors: TerminalColors | null;
-  readonly mode: TuiThemeMode | null;
   readonly durationMs: number;
 }
 
-export function shouldResolveRendererTheme(
+export function shouldTrackSystemThemeMode(theme: AppTheme | undefined): boolean {
+  return theme === "system";
+}
+
+export function shouldResolveTerminalPalette(themeId: TuiThemeId): boolean {
+  return themeId === TERMINAL_MATCH_THEME_ID;
+}
+
+export function shouldListenForRendererThemeChanges(
   theme: AppTheme | undefined,
-  themeId: string | null | undefined,
+  themeId: TuiThemeId,
 ): boolean {
-  return theme === "system" || themeId === TERMINAL_MATCH_THEME_ID;
+  return shouldTrackSystemThemeMode(theme) || shouldResolveTerminalPalette(themeId);
 }
 
 export function normalizeRendererThemeMode(value: unknown): TuiThemeMode | null {
   return value === "light" || value === "dark" ? value : null;
 }
 
-export async function resolveRendererTheme(
+export async function resolveTerminalPalette(
   renderer: ThemeAwareRenderer,
   options: { clearCache?: boolean } = {},
-): Promise<ResolvedRendererTheme> {
-  const fallbackMode = normalizeRendererThemeMode(renderer.themeMode);
-
+): Promise<ResolvedTerminalPalette> {
   if (!renderer.getPalette) {
-    return { colors: null, mode: fallbackMode, durationMs: 0 };
+    return { colors: null, durationMs: 0 };
   }
 
   const startedAt = performance.now();
-  try {
-    if (options.clearCache) {
-      renderer.clearPaletteCache?.();
-    }
+  if (options.clearCache) {
+    renderer.clearPaletteCache?.();
+  }
 
+  try {
     const colors = await renderer.getPalette({ size: 16 });
-    const durationMs = performance.now() - startedAt;
-    const mode = resolveTerminalThemeMode(colors) ?? fallbackMode;
-    return hasUsableTerminalColors(colors)
-      ? { colors, mode, durationMs }
-      : { colors: null, mode: fallbackMode, durationMs };
-  } catch {
     return {
-      colors: null,
-      mode: fallbackMode,
+      colors: hasUsableTerminalColors(colors) ? colors : null,
       durationMs: performance.now() - startedAt,
     };
+  } catch {
+    return { colors: null, durationMs: performance.now() - startedAt };
   }
 }

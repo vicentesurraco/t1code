@@ -357,6 +357,10 @@ export function isTuiThemeId(value: unknown): value is TuiThemeId {
   return typeof value === "string" && (TUI_THEME_IDS as readonly string[]).includes(value);
 }
 
+export function normalizeTuiThemeId(value: unknown): TuiThemeId {
+  return isTuiThemeId(value) ? value : DEFAULT_TUI_THEME_ID;
+}
+
 export function hasUsableTerminalColors(
   colors: TerminalColors | null | undefined,
 ): colors is TerminalColors {
@@ -573,15 +577,10 @@ export function resolveTerminalThemeMode(
   colors: TerminalColors | null | undefined,
 ): TuiThemeMode | null {
   if (!hasUsableTerminalColors(colors)) return null;
-  const backgroundHex = systemBackgroundHex(colors);
-  if (!backgroundHex) return null;
-  return luminanceFromHex(backgroundHex) > 0.5 ? "light" : "dark";
+  return luminanceFromHex(systemBackgroundHex(colors)!) > 0.5 ? "light" : "dark";
 }
 
-function createTerminalMatchTheme(colors: TerminalColors, mode: TuiThemeMode): TuiTheme | null {
-  const backgroundHex = systemBackgroundHex(colors);
-  if (!backgroundHex) return null;
-
+function createTerminalMatchTheme(colors: TerminalColors, mode: TuiThemeMode): TuiTheme {
   const resolved = resolveSystemTheme(generateSystem(colors, mode), mode);
   const isDark = mode === "dark";
   const toneAlpha = isDark ? 0.18 : 0.12;
@@ -719,35 +718,29 @@ const THEME_CACHE = new Map<string, TuiTheme>([
 
 export function resolveTuiTheme(
   theme: AppTheme | undefined,
-  themeId: string | null | undefined = DEFAULT_TUI_THEME_ID,
+  themeId: TuiThemeId = DEFAULT_TUI_THEME_ID,
   options: ResolveTuiThemeOptions = {},
 ): TuiTheme {
-  const resolvedThemeId = isTuiThemeId(themeId) ? themeId : DEFAULT_TUI_THEME_ID;
   const mode = resolveTuiThemeMode(theme, options.systemMode ?? null);
   const cacheKey =
-    resolvedThemeId === TERMINAL_MATCH_THEME_ID
-      ? `${resolvedThemeId}:${mode}:${terminalColorsSignature(options.terminalColors)}`
-      : `${resolvedThemeId}:${mode}`;
+    themeId === TERMINAL_MATCH_THEME_ID
+      ? `${themeId}:${mode}:${terminalColorsSignature(options.terminalColors)}`
+      : `${themeId}:${mode}`;
   const cached = THEME_CACHE.get(cacheKey);
   if (cached) {
     return cached;
   }
 
-  if (resolvedThemeId === TERMINAL_MATCH_THEME_ID) {
+  if (themeId === TERMINAL_MATCH_THEME_ID) {
     const fallback = defaultThemeForMode(mode);
     if (!hasUsableTerminalColors(options.terminalColors)) {
       THEME_CACHE.set(cacheKey, fallback);
       return fallback;
     }
 
-    try {
-      const resolved = createTerminalMatchTheme(options.terminalColors, mode) ?? fallback;
-      THEME_CACHE.set(cacheKey, resolved);
-      return resolved;
-    } catch {
-      THEME_CACHE.set(cacheKey, fallback);
-      return fallback;
-    }
+    const resolved = createTerminalMatchTheme(options.terminalColors, mode);
+    THEME_CACHE.set(cacheKey, resolved);
+    return resolved;
   }
 
   return defaultThemeForMode(mode);

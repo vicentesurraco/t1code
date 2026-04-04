@@ -136,8 +136,10 @@ import { openExternalUrl } from "./openExternal";
 import { type TuiPrefs, readPrefs, writePrefs } from "./prefs";
 import {
   normalizeRendererThemeMode,
-  resolveRendererTheme,
-  shouldResolveRendererTheme,
+  resolveTerminalPalette,
+  shouldListenForRendererThemeChanges,
+  shouldResolveTerminalPalette,
+  shouldTrackSystemThemeMode,
 } from "./rendererTheme";
 import { resolveTuiResponsiveLayout, TUI_SIDEBAR_WIDTH } from "./responsiveLayout";
 import { resolveAttachedServerConnection, startServerSupervisor } from "./serverSupervisor";
@@ -154,7 +156,8 @@ import {
   DEFAULT_TUI_THEME_ID,
   TUI_THEME_IDS,
   TUI_THEME_LABELS,
-  isTuiThemeId,
+  normalizeTuiThemeId,
+  resolveTerminalThemeMode,
   resolveTuiTheme,
   type TuiColor,
   type TuiPalette,
@@ -2640,7 +2643,7 @@ export function App({
   interruptRequestToken?: number;
   onRequestExit?: () => void;
   initialAppSettings?: AppSettings;
-  initialTuiThemeId?: string | null;
+  initialTuiThemeId?: TuiThemeId;
   initialSystemThemeMode?: TuiThemeMode | null;
   initialTerminalThemeColors?: TerminalColors | null;
 }) {
@@ -2744,8 +2747,8 @@ export function App({
   const [appSettings, setAppSettings] = useState<AppSettings>(() =>
     normalizeAppSettings({ ...DEFAULT_APP_SETTINGS, ...initialAppSettings }),
   );
-  const [tuiThemeId, setTuiThemeId] = useState<TuiThemeId>(() =>
-    isTuiThemeId(initialTuiThemeId) ? initialTuiThemeId : DEFAULT_TUI_THEME_ID,
+  const [tuiThemeId, setTuiThemeId] = useState<TuiThemeId>(
+    () => initialTuiThemeId ?? DEFAULT_TUI_THEME_ID,
   );
   const [systemThemeMode, setSystemThemeMode] = useState<TuiThemeMode | null>(
     () => initialSystemThemeMode ?? normalizeRendererThemeMode(_renderer.themeMode),
@@ -2800,7 +2803,12 @@ export function App({
   const updateAppSettings = useCallback((patch: Partial<AppSettings>) => {
     setAppSettings((current) => normalizeAppSettings({ ...current, ...patch }));
   }, []);
-  const shouldResolveTerminalTheme = shouldResolveRendererTheme(appSettings.theme, tuiThemeId);
+  const tracksSystemThemeMode = shouldTrackSystemThemeMode(appSettings.theme);
+  const usesTerminalPalette = shouldResolveTerminalPalette(tuiThemeId);
+  const listensForRendererThemeChanges = shouldListenForRendererThemeChanges(
+    appSettings.theme,
+    tuiThemeId,
+  );
   const activeTheme = resolveTuiTheme(appSettings.theme, tuiThemeId, {
     systemMode: systemThemeMode,
     terminalColors: terminalThemeColors,
@@ -2830,17 +2838,20 @@ export function App({
 
   useEffect(() => {
     let disposed = false;
-    const applyDetectedTheme = async (clearCache = false) => {
-      const detectedTheme = shouldResolveTerminalTheme
-        ? await resolveRendererTheme(_renderer, { clearCache })
-        : { colors: null, mode: normalizeRendererThemeMode(_renderer.themeMode), durationMs: 0 };
+    const applyRendererThemeState = async (clearPaletteCache = false) => {
+      const nextTerminalColors = usesTerminalPalette
+        ? (await resolveTerminalPalette(_renderer, { clearCache: clearPaletteCache })).colors
+        : null;
       if (disposed) return;
-      setTerminalThemeColors(detectedTheme.colors);
-      setSystemThemeMode(detectedTheme.mode);
+      setTerminalThemeColors(nextTerminalColors);
+      setSystemThemeMode(
+        resolveTerminalThemeMode(nextTerminalColors) ??
+          normalizeRendererThemeMode(_renderer.themeMode),
+      );
     };
 
-    void applyDetectedTheme(false);
-    if (!shouldResolveTerminalTheme) {
+    void applyRendererThemeState(false);
+    if (!listensForRendererThemeChanges) {
       return () => {
         disposed = true;
       };
@@ -2848,10 +2859,10 @@ export function App({
 
     const handleThemeMode = (nextMode: unknown) => {
       const normalizedMode = normalizeRendererThemeMode(nextMode);
-      if (normalizedMode) {
+      if (tracksSystemThemeMode && normalizedMode) {
         setSystemThemeMode(normalizedMode);
       }
-      void applyDetectedTheme(true);
+      void applyRendererThemeState(usesTerminalPalette);
     };
 
     _renderer.on?.(CliRenderEvents.THEME_MODE, handleThemeMode);
@@ -2859,7 +2870,7 @@ export function App({
       disposed = true;
       _renderer.off?.(CliRenderEvents.THEME_MODE, handleThemeMode);
     };
-  }, [_renderer, shouldResolveTerminalTheme]);
+  }, [_renderer, listensForRendererThemeChanges, tracksSystemThemeMode, usesTerminalPalette]);
 
   useEffect(() => {
     setTerminalImageSupport(resolveTerminalImageSupport(terminalRenderer));
@@ -2953,9 +2964,7 @@ export function App({
           setMainView(prefs.mainView);
           setFocusArea("settings");
         }
-        if (isTuiThemeId(prefs.tuiThemeId)) {
-          setTuiThemeId(prefs.tuiThemeId);
-        }
+        setTuiThemeId(normalizeTuiThemeId(prefs.tuiThemeId));
         if (prefs.appSettings) {
           setAppSettings(normalizeAppSettings({ ...DEFAULT_APP_SETTINGS, ...prefs.appSettings }));
           setOpenInstallProviders({

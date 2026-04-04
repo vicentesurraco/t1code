@@ -5,6 +5,7 @@ import {
   DEFAULT_TUI_THEME_ID,
   type TerminalColors,
   hasUsableTerminalColors,
+  normalizeTuiThemeId,
   resolveTuiTheme,
   resolveTuiThemeMode,
 } from "./theme";
@@ -84,6 +85,15 @@ describe("hasUsableTerminalColors", () => {
   });
 });
 
+describe("normalizeTuiThemeId", () => {
+  it("accepts known ids and normalizes unknown values at the boundary", () => {
+    expect(normalizeTuiThemeId("default")).toBe("default");
+    expect(normalizeTuiThemeId("terminal-match")).toBe("terminal-match");
+    expect(normalizeTuiThemeId("not-a-theme")).toBe(DEFAULT_TUI_THEME_ID);
+    expect(normalizeTuiThemeId(null)).toBe(DEFAULT_TUI_THEME_ID);
+  });
+});
+
 describe("resolveTuiTheme", () => {
   it.each([
     {
@@ -147,10 +157,6 @@ describe("resolveTuiTheme", () => {
     expect(theme.colors.selectedText).toBe("#2e3440");
     expect(theme.status.planReady).toBe("#b48ead");
     expect(theme.diffViewer.addedSignColor).toBe("#a3be8c");
-  });
-
-  it("falls back to the default theme for unknown ids", () => {
-    expect(resolveTuiTheme("dark", "not-a-theme")).toBe(DEFAULT_TUI_THEME);
   });
 
   it("falls back to the default preset when terminal-match colors are unavailable", () => {
